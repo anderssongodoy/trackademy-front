@@ -1,6 +1,12 @@
 export interface OnboardingFormData {
   campus: string;
   cycle: number;
+  program: string;
+  specialization?: string;
+  careerInterests: string[];
+  studyHoursPerDay: number;
+  learningStyle: string;
+  motivationFactors: string[];
   wantsAlerts: boolean;
   wantsIncentives: boolean;
   allowDataSharing: boolean;
@@ -16,6 +22,7 @@ export interface OnboardingStep {
 export interface Campus {
   id: string;
   name: string;
+  city?: string;
   icon?: string;
 }
 
@@ -25,14 +32,19 @@ export interface Cycle {
   description?: string;
 }
 
+export interface Program {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 export interface OnboardingResponse {
   success: boolean;
   message: string;
+  userId?: string;
   enrollmentId?: string;
 }
 
 export interface ApiError {
-  status: number;
   message: string;
-  code?: string;
 }

@@ -80,7 +80,7 @@ export default function Home() {
               <Button
                 size="lg"
                 onClick={() =>
-                  signIn("azure-ad", { callbackUrl: "/onboarding" })
+                  signIn("microsoft-entra-id", { callbackUrl: "/onboarding" })
                 }
                 fullWidth
                 className="sm:w-auto"
@@ -159,7 +159,7 @@ export default function Home() {
               size="lg"
               fullWidth
               onClick={() =>
-                signIn("azure-ad", { callbackUrl: "/onboarding" })
+                signIn("microsoft-entra-id", { callbackUrl: "/onboarding" })
               }
             >
               Empieza Ahora

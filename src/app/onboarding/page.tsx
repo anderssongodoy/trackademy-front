@@ -1,23 +1,30 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Button } from "@/components/ui";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useSession } from "next-auth/react";
 import { CampusStep } from "@/components/onboarding/CampusStep";
 import { CycleStep } from "@/components/onboarding/CycleStep";
+import { ProgramStep } from "@/components/onboarding/ProgramStep";
+import { CareerInterestsStep } from "@/components/onboarding/CareerInterestsStep";
+import { StudyHoursStep } from "@/components/onboarding/StudyHoursStep";
+import { LearningStyleStep } from "@/components/onboarding/LearningStyleStep";
+import { MotivationFactorsStep } from "@/components/onboarding/MotivationFactorsStep";
 import { PreferencesStep } from "@/components/onboarding/PreferencesStep";
 import { ProgressBar } from "@/components/onboarding/ProgressBar";
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const { data: session } = useSession();
+  const idToken = (session as unknown as { idToken?: string } | null)?.idToken ?? "";
+
   const {
     currentStep,
     formData,
     campuses,
     cycles,
+    programs,
     loading,
     error,
     isSubmitting,
@@ -26,26 +33,10 @@ export default function OnboardingPage() {
     updateFormData,
     submitOnboarding,
     clearError,
-  } = useOnboarding();
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
-  }, [status, router]);
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-gradient-dark flex items-center justify-center p-4">
-        <div className="animate-pulse">
-          <div className="w-12 h-12 bg-primary-500 rounded-full mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
+  } = useOnboarding(idToken);
 
   const handleNext = async () => {
-    if (currentStep === 3) {
+    if (currentStep === 7) {
       const success = await submitOnboarding();
       if (success) {
         router.push("/dashboard");
@@ -78,7 +69,7 @@ export default function OnboardingPage() {
               </Button>
             </div>
 
-            <ProgressBar current={currentStep} total={3} className="mb-8" />
+            <ProgressBar current={currentStep} total={7} className="mb-8" />
           </div>
 
           <div className="bg-white/10 backdrop-blur border border-white/20 rounded-3xl p-6 sm:p-10 text-center min-h-96 flex flex-col justify-between">
@@ -100,14 +91,58 @@ export default function OnboardingPage() {
               )}
 
               {currentStep === 3 && (
-                <PreferencesStep
-                  preferences={{
-                    wantsAlerts: formData.wantsAlerts,
-                    wantsIncentives: formData.wantsIncentives,
-                    allowDataSharing: formData.allowDataSharing,
-                  }}
-                  onUpdate={updateFormData}
+                <ProgramStep
+                  selected={formData.program}
+                  programs={programs}
+                  onSelect={(program) => updateFormData({ program })}
                 />
+              )}
+
+              {currentStep === 4 && (
+                <CareerInterestsStep
+                  selected={formData.careerInterests}
+                  onUpdate={(careerInterests) =>
+                    updateFormData({ careerInterests })
+                  }
+                />
+              )}
+
+              {currentStep === 5 && (
+                <StudyHoursStep
+                  selected={formData.studyHoursPerDay}
+                  onUpdate={(studyHoursPerDay) =>
+                    updateFormData({ studyHoursPerDay })
+                  }
+                />
+              )}
+
+              {currentStep === 6 && (
+                <LearningStyleStep
+                  selected={formData.learningStyle}
+                  onUpdate={(learningStyle) =>
+                    updateFormData({ learningStyle })
+                  }
+                />
+              )}
+
+              {currentStep === 7 && (
+                <div>
+                  <MotivationFactorsStep
+                    selected={formData.motivationFactors}
+                    onUpdate={(motivationFactors) =>
+                      updateFormData({ motivationFactors })
+                    }
+                  />
+
+                  <PreferencesStep
+                    preferences={{
+                      wantsAlerts: formData.wantsAlerts,
+                      wantsIncentives: formData.wantsIncentives,
+                      allowDataSharing: formData.allowDataSharing,
+                    }}
+                    onUpdate={updateFormData}
+                  />
+                </div>
               )}
             </div>
 
@@ -150,7 +185,7 @@ export default function OnboardingPage() {
                     <span className="animate-spin mr-2">⏳</span>
                     Guardando...
                   </>
-                ) : currentStep === 3 ? (
+                ) : currentStep === 7 ? (
                   "Completar ✨"
                 ) : (
                   "Siguiente →"
@@ -160,7 +195,7 @@ export default function OnboardingPage() {
           </div>
 
           <div className="mt-8 text-center text-white/60 text-sm">
-            <p>Paso {currentStep} de 3</p>
+            <p>Paso {currentStep} de 7</p>
           </div>
         </div>
       </div>

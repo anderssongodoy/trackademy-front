@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { AuthProvider } from "@/components/providers/AuthProvider";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Trackademy - Gestión Académica Inteligente",
@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className="antialiased bg-linear-to-br from-slate-50 to-slate-100">
-        <AuthProvider>{children}</AuthProvider>
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { OnboardingFormData, Campus, Cycle, ApiError } from "@/types/onboarding";
+import { OnboardingFormData, Campus, Cycle, Program, ApiError } from "@/types/onboarding";
 import { onboardingService } from "@/services/onboardingService";
 
 interface UseOnboardingReturn {
@@ -7,6 +7,7 @@ interface UseOnboardingReturn {
   formData: OnboardingFormData;
   campuses: Campus[];
   cycles: Cycle[];
+  programs: Program[];
   loading: boolean;
   error: string | null;
   isSubmitting: boolean;
@@ -18,38 +19,46 @@ interface UseOnboardingReturn {
   clearError: () => void;
 }
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 7;
 
 const DEFAULT_FORM_DATA: OnboardingFormData = {
   campus: "",
   cycle: 0,
+  program: "",
+  specialization: "",
+  careerInterests: [],
+  studyHoursPerDay: 3,
+  learningStyle: "visual",
+  motivationFactors: [],
   wantsAlerts: true,
   wantsIncentives: true,
   allowDataSharing: false,
 };
 
-export function useOnboarding(
-  campusesData?: Campus[],
-  cyclesData?: Cycle[]
-): UseOnboardingReturn {
+export function useOnboarding(token: string): UseOnboardingReturn {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<OnboardingFormData>(DEFAULT_FORM_DATA);
-  const [campuses, setCampuses] = useState<Campus[]>(campusesData || []);
-  const [cycles, setCycles] = useState<Cycle[]>(cyclesData || []);
-  const [loading, setLoading] = useState(true);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [loading, setLoading] = useState(!token);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!token) return;
+
     const loadData = async () => {
       setLoading(true);
       try {
-        const [campusesRes, cyclesRes] = await Promise.all([
-          onboardingService.fetchCampuses(),
-          onboardingService.fetchCycles(),
+        const [campusesRes, cyclesRes, programsRes] = await Promise.all([
+          onboardingService.fetchCampuses(token),
+          onboardingService.fetchCycles(token),
+          onboardingService.fetchPrograms(token),
         ]);
         setCampuses(campusesRes);
         setCycles(cyclesRes);
+        setPrograms(programsRes);
       } catch (err) {
         console.error("Error loading onboarding data:", err);
         setError("No se pudieron cargar los datos. Usando valores por defecto.");
@@ -59,7 +68,7 @@ export function useOnboarding(
     };
 
     loadData();
-  }, []);
+  }, [token]);
 
   const updateFormData = useCallback((data: Partial<OnboardingFormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
@@ -76,11 +85,35 @@ export function useOnboarding(
         break;
       case 2:
         if (!formData.cycle) {
-          setError("Por favor selecciona un ciclo");
+          setError("Por favor selecciona un ciclo académico");
           return false;
         }
         break;
       case 3:
+        if (!formData.program) {
+          setError("Por favor selecciona un programa");
+          return false;
+        }
+        break;
+      case 4:
+        if (formData.careerInterests.length === 0) {
+          setError("Por favor selecciona al menos un interés profesional");
+          return false;
+        }
+        break;
+      case 5:
+        if (!formData.learningStyle) {
+          setError("Por favor selecciona tu estilo de aprendizaje");
+          return false;
+        }
+        break;
+      case 6:
+        if (formData.motivationFactors.length === 0) {
+          setError("Por favor selecciona al menos un factor de motivación");
+          return false;
+        }
+        break;
+      case 7:
         break;
     }
     return true;
@@ -105,7 +138,7 @@ export function useOnboarding(
 
     setIsSubmitting(true);
     try {
-      const response = await onboardingService.submitOnboarding(formData);
+      const response = await onboardingService.submitOnboarding(formData, token);
       if (response.success) {
         return true;
       } else {
@@ -120,7 +153,7 @@ export function useOnboarding(
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateStep]);
+  }, [formData, validateStep, token]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -131,6 +164,7 @@ export function useOnboarding(
     formData,
     campuses,
     cycles,
+    programs,
     loading,
     error,
     isSubmitting,

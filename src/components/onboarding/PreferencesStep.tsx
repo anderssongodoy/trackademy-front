@@ -14,7 +14,7 @@ export function PreferencesStep({ preferences, onUpdate }: PreferencesStepProps)
   return (
     <>
       <Badge variant="secondary" className="mb-6 inline-flex">
-        Paso 3 de 3
+        Paso 7 de 7 - Preferencias
       </Badge>
       <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
         Personaliza tu Experiencia

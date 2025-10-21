@@ -11,7 +11,7 @@ export function CycleStep({ selected, cycles, onSelect }: CycleStepProps) {
   return (
     <>
       <Badge variant="secondary" className="mb-6 inline-flex">
-        Paso 2 de 3
+        Paso 2 de 7
       </Badge>
       <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
         ¿En qué ciclo estás?

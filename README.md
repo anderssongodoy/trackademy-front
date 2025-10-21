@@ -1,5 +1,30 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Auth with Microsoft Entra ID (Auth.js v5)
+
+This app uses Auth.js v5 with the `microsoft-entra-id` provider. We store the provider `id_token` in the session JWT and expose it to the client as `session.idToken` to call the Spring Boot backend.
+
+1) Copy `.env.example` to `.env.local` and fill:
+
+- `AUTH_SECRET`
+- `AUTH_MICROSOFT_ENTRA_ID_ID`
+- `AUTH_MICROSOFT_ENTRA_ID_SECRET`
+- `AUTH_MICROSOFT_ENTRA_ID_TENANT_ID`
+- `BACKEND_URL`
+- `NEXT_PUBLIC_API_URL`
+
+2) In your Azure App Registration, add redirect URIs (type Web):
+
+- `http://localhost:3000/api/auth/callback/microsoft-entra-id`
+- `https://<your-domain>/api/auth/callback/microsoft-entra-id`
+
+3) Flow summary:
+
+- User signs in with Microsoft.
+- Auth.js requests `openid profile email offline_access` and receives an `id_token`.
+- We persist the `id_token` in the JWT and expose it on the session as `idToken`.
+- On `events.signIn`, we POST `{ idToken }` to `BACKEND_URL/auth/entra/callback` so Spring can validate and create its own session/JWT if needed.
+
 ## Getting Started
 
 First, run the development server:

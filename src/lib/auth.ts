@@ -1,39 +1,67 @@
-import NextAuth from "next-auth";
-import AzureADProvider from "next-auth/providers/azure-ad";
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const BACKEND_URL = process.env.BACKEND_URL;
+const TENANT_ID = process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID;
+
+export const authConfig: NextAuthConfig = {
   providers: [
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+    MicrosoftEntraID({
+      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID!,
+      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET!,
+      issuer: TENANT_ID
+        ? `https://login.microsoftonline.com/common/v2.0`
+        : undefined,
       authorization: {
         params: {
-          scope: "openid profile email",
+          scope: "openid profile email offline_access",
+          response_type: "code",
         },
       },
-      allowDangerousEmailAccountLinking: true,
     }),
   ],
+
+  session: { strategy: "jwt" },
+
   callbacks: {
-    authorized({ auth }) {
-      return !!auth?.user;
-    },
-    jwt({ token, account }) {
-      if (account) {
-        token.accessToken = account.access_token;
+    async jwt({ token, account }) {
+      if (account?.id_token) {
+        token.idToken = account.id_token;
       }
       return token;
     },
-    session({ session }) {
+    async session({ session, token }) {
+      if (token?.idToken) {
+        // @ts-expect-error - add custom field
+        session.idToken = token.idToken as string;
+      }
       return session;
     },
   },
+
+  events: {
+    async signIn({ account }) {
+      try {
+        const idToken = account?.id_token;
+        if (idToken && BACKEND_URL) {
+          await fetch(`${BACKEND_URL}/auth/entra/callback`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken }),
+          }).catch(() => undefined);
+        }
+      } catch {
+      }
+    },
+  },
+
   pages: {
-    signIn: "/login",
+    signIn: "/",
   },
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
-  },
-  debug: process.env.NODE_ENV === "development",
-});
+};
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+
+export type ExtendedSession = {
+  idToken?: string;
+} & Awaited<ReturnType<typeof auth>>;
