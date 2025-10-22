@@ -2,195 +2,157 @@
 
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
-import { Button, Badge } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { onboardingService } from "@/services/onboardingService";
+
+
+interface CustomSession {
+  user?: {
+    email?: string;
+    name?: string;
+    // add other user properties as needed
+  };
+  idToken?: string;
+  // add other session properties as needed
+}
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session } = useSession() as { data: CustomSession | null };
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
-  if (session) {
-    return (
-      <div className="min-h-screen bg-gradient-dark flex items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md text-center">
-          <div className="mb-8">
-            <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center text-white text-3xl mx-auto mb-6">
-              ✓
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">
-              ¡Bienvenido de vuelta!
-            </h1>
-            <p className="text-primary-200 text-sm sm:text-base mb-1">
-              {session.user?.email}
-            </p>
-          </div>
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      if (!session) return;
+      try {
+        const token = session?.idToken;
+        if (!token) return;
+        const done = await onboardingService.getOnboardingStatus(token);
+        if (mounted) setOnboardingDone(done === true);
+      } catch {
+        if (mounted) setOnboardingDone(false);
+      }
+    };
+    check();
+    return () => { mounted = false; };
+  }, [session]);
 
-          <div className="space-y-3">
-            <Link href="/onboarding">
-              <Button size="lg" fullWidth>
-                Continuar al Onboarding
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button variant="secondary" size="lg" fullWidth>
-                Ir al Dashboard
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+  // Lógica para el botón principal
+  let mainButtonAction = null;
+  let mainButtonText = "¡Sube de nivel! 🚀";
+  if (!session) {
+    mainButtonAction = () => signIn("microsoft-entra-id");
+  } else if (onboardingDone === false) {
+    mainButtonAction = () => window.location.href = "/onboarding";
+    mainButtonText = "Completa tu onboarding";
+  } else if (onboardingDone === true) {
+    mainButtonAction = () => window.location.href = "/dashboard";
+    mainButtonText = "Ir al Panel";
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 bg-linear-to-b from-slate-950 via-primary-950 to-slate-950 overflow-hidden">
-      <div className="fixed inset-0 opacity-20">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-secondary-500 rounded-full mix-blend-multiply filter blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary-500 rounded-full mix-blend-multiply filter blur-3xl"></div>
-      </div>
-
-      <div className="relative z-10">
-        <nav className="sticky top-0 bg-white/10 backdrop-blur-xl border-b border-white/10">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center text-white font-black">
-                T
-              </div>
-              <span className="text-white font-black text-lg sm:text-xl hidden sm:block">Trackademy</span>
-            </div>
-          </div>
-        </nav>
-
-        <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-16 sm:pt-20">
-          <div className="w-full max-w-2xl text-center mb-12 sm:mb-16 animate-fade-in">
-            <Badge variant="secondary" className="mb-4 sm:mb-6 inline-flex">
-              🚀 Próxima generación de gestión académica
-            </Badge>
-
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white mb-4 sm:mb-6 leading-tight">
-              Tu Éxito
-              <span className="block bg-gradient-hero bg-clip-text text-transparent">
-                Académico Empieza Aquí
-              </span>
-            </h1>
-
-            <p className="text-base sm:text-lg text-primary-100 mb-8 sm:mb-10 leading-relaxed max-w-xl mx-auto">
-              Gestiona cursos, horarios y calificaciones. Recibe alertas inteligentes, mejora tu desempeño y sé más competitivo que nunca.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-16 sm:mb-20">
-              <Button
-                size="lg"
-                onClick={() =>
-                  signIn("microsoft-entra-id", { callbackUrl: "/onboarding" })
-                }
-                fullWidth
-                className="sm:w-auto"
-              >
-                🔐 Inicia Sesión con Microsoft
-              </Button>
-              <Link href="/login" className="block sm:inline-block">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  fullWidth
-                  className="sm:w-auto"
-                >
-                  Saber más
-                </Button>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-16 sm:mb-20">
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 border border-white/20 hover:border-primary-400/50 transition">
-                <div className="text-3xl sm:text-4xl mb-2">📚</div>
-                <p className="text-white font-bold text-sm sm:text-base">Cursos</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 border border-white/20 hover:border-primary-400/50 transition">
-                <div className="text-3xl sm:text-4xl mb-2">⏰</div>
-                <p className="text-white font-bold text-sm sm:text-base">Horarios</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 border border-white/20 hover:border-primary-400/50 transition">
-                <div className="text-3xl sm:text-4xl mb-2">📊</div>
-                <p className="text-white font-bold text-sm sm:text-base">Notas</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full max-w-2xl grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-16">
-            <FeatureCard
-              icon="🎯"
-              title="Metas"
-              description="Establece objetivos"
-            />
-            <FeatureCard
-              icon="🔔"
-              title="Alertas"
-              description="Notificaciones inteligentes"
-            />
-            <FeatureCard
-              icon="⚡"
-              title="Rendimiento"
-              description="Mejora tu desempeño"
-            />
-            <FeatureCard
-              icon="🏆"
-              title="Incentivos"
-              description="Recompensas por logros"
-            />
-            <FeatureCard
-              icon="📈"
-              title="Análisis"
-              description="Datos en tiempo real"
-            />
-            <FeatureCard
-              icon="🤝"
-              title="Comunidad"
-              description="Conecta con otros"
-            />
-          </div>
-
-          <div className="w-full max-w-2xl bg-gradient-to-r from-primary-600/20 to-secondary-600/20 backdrop-blur border border-primary-400/30 rounded-3xl p-6 sm:p-8 text-center">
-            <h3 className="text-xl sm:text-2xl font-black text-white mb-3">
-              Diseñado para UTepinos
-            </h3>
-            <p className="text-sm sm:text-base text-primary-100 mb-6">
-              Trackademy es una plataforma creada específicamente para estudiantes de la UTP, entendiendo tus necesidades académicas.
-            </p>
+    <div className="min-h-screen bg-[#18132a] flex flex-col items-center justify-center px-4 py-8">
+      <div className="w-full max-w-3xl mx-auto text-center animate-fade-in">
+        <div className="mb-10">
+          <h1 className="text-5xl sm:text-7xl font-black text-white mb-4 leading-tight">
+            <span className="block text-[#7c3aed]">Desbloquea</span>
+            <span className="block">Tu Potencial,</span>
+            <span className="block text-[#a21caf]">Un Pixel</span>
+            <span className="block">a la vez</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-[#c7d2fe] mb-8 max-w-xl mx-auto">
+            Tu camino hacia la excelencia académica comienza aquí. Explora cursos, conecta con compañeros y conquista tus metas en un entorno divertido y retro-futurista.
+          </p>
+          <Button
+            size="lg"
+            className="bg-[#7c3aed] hover:bg-[#a21caf] text-white font-bold px-8 py-4 text-lg shadow-lg"
+            fullWidth
+            onClick={mainButtonAction}
+          >
+            {mainButtonText}
+          </Button>
+          {session && (
             <Button
               size="lg"
               fullWidth
-              onClick={() =>
-                signIn("microsoft-entra-id", { callbackUrl: "/onboarding" })
-              }
+              className="bg-[#18132a] hover:bg-[#312e81] text-white font-bold mt-4"
+              onClick={() => {
+                // Cierra sesión y redirige a la landing
+                import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/' }));
+              }}
             >
-              Empieza Ahora
+              Cerrar sesión
             </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+          <div className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6 flex flex-col items-center shadow-lg">
+            <div className="text-4xl mb-2 text-yellow-300">📅</div>
+            <p className="text-white font-bold text-lg mb-1">Mi Horario</p>
+            <p className="text-[#c7d2fe] text-sm">Consulta tus clases y fechas importantes.</p>
+          </div>
+          <div className="bg-[#23203b] border border-[#a21caf] rounded-2xl p-6 flex flex-col items-center shadow-lg">
+            <div className="text-4xl mb-2 text-green-300">📚</div>
+            <p className="text-white font-bold text-lg mb-1">Materiales</p>
+            <p className="text-[#c7d2fe] text-sm">Accede a tus apuntes y recursos.</p>
+          </div>
+          <div className="bg-[#23203b] border border-pink-700 rounded-2xl p-6 flex flex-col items-center shadow-lg">
+            <div className="text-4xl mb-2 text-pink-300">💬</div>
+            <p className="text-white font-bold text-lg mb-1">Vida Campus</p>
+            <p className="text-[#c7d2fe] text-sm">Conecta con clubes y eventos.</p>
           </div>
         </div>
-
-        <footer className="border-t border-white/10 bg-white/5 backdrop-blur py-8 px-4 sm:px-6 mt-16 sm:mt-20">
-          <div className="max-w-2xl mx-auto text-center text-xs sm:text-sm text-primary-200">
-            <p>© 2025 Trackademy. Gestión académica inteligente para la UTP.</p>
-          </div>
-        </footer>
       </div>
+      <footer className="w-full max-w-3xl mx-auto text-center text-xs sm:text-sm text-[#c7d2fe] mt-12 border-t border-[#312e81] pt-6">
+        <p>© 2025 Trackademy. Plataforma académica retro-futurista para la UTP.</p>
+      </footer>
     </div>
   );
-}
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: string;
-  title: string;
-  description: string;
-}) {
   return (
-    <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-4 hover:border-primary-400/50 transition hover:bg-white/15">
-      <div className="text-2xl sm:text-3xl mb-2">{icon}</div>
-      <p className="font-bold text-white text-xs sm:text-sm mb-1">{title}</p>
-      <p className="text-white/70 text-xs hidden sm:block">{description}</p>
+    <div className="min-h-screen bg-[#18132a] flex flex-col items-center justify-center px-4 py-8">
+      <div className="w-full max-w-3xl mx-auto text-center animate-fade-in">
+        <div className="mb-10">
+          <h1 className="text-5xl sm:text-7xl font-black text-white mb-4 leading-tight">
+            <span className="block text-[#7c3aed]">Desbloquea</span>
+            <span className="block">Tu Potencial,</span>
+            <span className="block text-[#a21caf]">Un Pixel</span>
+            <span className="block">a la vez</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-[#c7d2fe] mb-8 max-w-xl mx-auto">
+            Tu camino hacia la excelencia académica comienza aquí. Explora cursos, conecta con compañeros y conquista tus metas en un entorno divertido y retro-futurista.
+          </p>
+          <Button
+            size="lg"
+            className="bg-[#7c3aed] hover:bg-[#a21caf] text-white font-bold px-8 py-4 text-lg shadow-lg"
+            onClick={() => signIn("microsoft-entra-id", { callbackUrl: "/onboarding" })}
+            fullWidth
+          >
+            ¡Sube de nivel! 🚀
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+          <div className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6 flex flex-col items-center shadow-lg">
+            <div className="text-4xl mb-2 text-yellow-300">📅</div>
+            <p className="text-white font-bold text-lg mb-1">Mi Horario</p>
+            <p className="text-[#c7d2fe] text-sm">Consulta tus clases y fechas importantes.</p>
+          </div>
+          <div className="bg-[#23203b] border border-[#a21caf] rounded-2xl p-6 flex flex-col items-center shadow-lg">
+            <div className="text-4xl mb-2 text-green-300">📚</div>
+            <p className="text-white font-bold text-lg mb-1">Materiales</p>
+            <p className="text-[#c7d2fe] text-sm">Accede a tus apuntes y recursos.</p>
+          </div>
+          <div className="bg-[#23203b] border border-pink-700 rounded-2xl p-6 flex flex-col items-center shadow-lg">
+            <div className="text-4xl mb-2 text-pink-300">💬</div>
+            <p className="text-white font-bold text-lg mb-1">Vida Campus</p>
+            <p className="text-[#c7d2fe] text-sm">Conecta con clubes y eventos.</p>
+          </div>
+        </div>
+      </div>
+      <footer className="w-full max-w-3xl mx-auto text-center text-xs sm:text-sm text-[#c7d2fe] mt-12 border-t border-[#312e81] pt-6">
+        <p>© 2025 Trackademy. Plataforma académica retro-futurista para la UTP.</p>
+      </footer>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui";
+import { useMemo, useState } from "react";
 import { Program } from "@/types/onboarding";
 
 interface ProgramStepProps {
@@ -8,11 +9,17 @@ interface ProgramStepProps {
 }
 
 export function ProgramStep({ selected, programs, onSelect }: ProgramStepProps) {
+  const [q, setQ] = useState("");
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return programs;
+    return programs.filter((p) =>
+      [p.name, p.code, p.id].filter(Boolean).some((t) => String(t).toLowerCase().includes(query))
+    );
+  }, [q, programs]);
   return (
     <>
-      <Badge variant="secondary" className="mb-6 inline-flex">
-        Paso 3 de 7
-      </Badge>
+      <Badge variant="secondary" className="mb-6 inline-flex">Programa</Badge>
       <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
         Tu Programa Académico
       </h2>
@@ -20,8 +27,17 @@ export function ProgramStep({ selected, programs, onSelect }: ProgramStepProps) 
         Selecciona el programa en el que estás matriculado
       </p>
 
-      <div className="space-y-3 max-w-md mx-auto">
-        {programs.map((program) => (
+      <div className="mb-4 max-w-md mx-auto">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="w-full rounded-xl bg-white/10 border border-white/20 p-3 text-white"
+          placeholder="Buscar programa"
+        />
+      </div>
+
+      <div className="space-y-3 max-w-md mx-auto max-h-72 overflow-auto">
+        {filtered.map((program) => (
           <button
             key={program.id}
             onClick={() => onSelect(program.id)}

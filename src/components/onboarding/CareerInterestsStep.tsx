@@ -1,23 +1,24 @@
+
 import { Badge } from "@/components/ui";
 
 interface CareerInterestsStepProps {
-  selected: string[];
+  selected?: string[];
   onUpdate: (interests: string[]) => void;
 }
 
 const CAREER_OPTIONS = [
-  { id: "backend", label: "🔧 Backend & Infraestructura", icon: "⚙️" },
-  { id: "frontend", label: "🎨 Frontend & UX", icon: "✨" },
-  { id: "mobile", label: "📱 Desarrollo Móvil", icon: "📲" },
-  { id: "data", label: "📊 Data Science & Analytics", icon: "📈" },
-  { id: "devops", label: "🚀 DevOps & Cloud", icon: "☁️" },
-  { id: "security", label: "🔐 Seguridad Informática", icon: "🛡️" },
-  { id: "ai", label: "🤖 IA & Machine Learning", icon: "🧠" },
-  { id: "gamedev", label: "🎮 Game Development", icon: "🎯" },
+  { id: "business", label: "Negocios y Gestión" },
+  { id: "design", label: "Diseño y Creatividad" },
+  { id: "tech", label: "Tecnología e Informática" },
+  { id: "health", label: "Salud y Bienestar" },
+  { id: "education", label: "Educación" },
+  { id: "science", label: "Ciencia e Ingeniería" },
+  { id: "social", label: "Ciencias Sociales" },
+  { id: "other", label: "Otro" },
 ];
 
 export function CareerInterestsStep({
-  selected,
+  selected = [],
   onUpdate,
 }: CareerInterestsStepProps) {
   const toggleInterest = (id: string) => {
@@ -30,29 +31,21 @@ export function CareerInterestsStep({
 
   return (
     <>
-      <Badge variant="secondary" className="mb-6 inline-flex">
-        Paso 4 de 7
-      </Badge>
-      <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-        Intereses Profesionales
-      </h2>
-      <p className="text-primary-100 mb-8 max-w-lg mx-auto">
-        Selecciona las áreas que te interesan (puedes elegir múltiples)
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
+      <Badge variant="secondary" className="mb-6 inline-flex">Intereses</Badge>
+      <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Intereses Profesionales</h2>
+      <p className="text-primary-100 mb-8 max-w-lg mx-auto">Selecciona tus áreas de interés</p>
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto max-h-48 overflow-auto scrollbar-none">
         {CAREER_OPTIONS.map((option) => (
           <button
             key={option.id}
             onClick={() => toggleInterest(option.id)}
-            className={`p-4 rounded-xl font-semibold transition transform text-left ${
+            className={`p-3 rounded-xl font-semibold transition border text-left ${
               selected.includes(option.id)
-                ? "bg-gradient-primary border border-primary-400 text-white scale-105"
-                : "bg-white/15 hover:bg-white/25 border border-white/30 text-white hover:scale-105"
+                ? "bg-gradient-primary border-primary-400 text-white scale-105"
+                : "bg-white/15 hover:bg-white/25 border-white/30 text-white hover:scale-105"
             }`}
           >
-            <div className="text-lg mb-1">{option.icon}</div>
-            <div>{option.label}</div>
+            {option.label}
           </button>
         ))}
       </div>

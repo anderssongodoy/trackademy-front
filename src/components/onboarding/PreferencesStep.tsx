@@ -14,7 +14,7 @@ export function PreferencesStep({ preferences, onUpdate }: PreferencesStepProps)
   return (
     <>
       <Badge variant="secondary" className="mb-6 inline-flex">
-        Paso 7 de 7 - Preferencias
+        Permisos y preferencias
       </Badge>
       <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
         Personaliza tu Experiencia
@@ -32,7 +32,7 @@ export function PreferencesStep({ preferences, onUpdate }: PreferencesStepProps)
           <div className="flex-shrink-0 mt-1">
             <input
               type="checkbox"
-              checked={preferences.wantsAlerts}
+              checked={!!preferences.wantsAlerts}
               readOnly
               className="w-6 h-6 rounded-lg cursor-pointer"
             />
@@ -53,7 +53,7 @@ export function PreferencesStep({ preferences, onUpdate }: PreferencesStepProps)
           <div className="flex-shrink-0 mt-1">
             <input
               type="checkbox"
-              checked={preferences.wantsIncentives}
+              checked={!!preferences.wantsIncentives}
               readOnly
               className="w-6 h-6 rounded-lg cursor-pointer"
             />
@@ -74,7 +74,7 @@ export function PreferencesStep({ preferences, onUpdate }: PreferencesStepProps)
           <div className="flex-shrink-0 mt-1">
             <input
               type="checkbox"
-              checked={preferences.allowDataSharing}
+              checked={!!preferences.allowDataSharing}
               readOnly
               className="w-6 h-6 rounded-lg cursor-pointer"
             />

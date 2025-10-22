@@ -8,6 +8,26 @@ interface CycleStepProps {
 }
 
 export function CycleStep({ selected, cycles, onSelect }: CycleStepProps) {
+  const allCycles = cycles.length >= 10 ? cycles : Array.from({ length: 10 }, (_, i) => ({
+    id: i + 1,
+    label: `Ciclo ${i + 1}`,
+    description: `${ordinal(i + 1)} Ciclo`,
+  }));
+  function ordinal(n: number) {
+    switch (n) {
+      case 1: return "Primer";
+      case 2: return "Segundo";
+      case 3: return "Tercer";
+      case 4: return "Cuarto";
+      case 5: return "Quinto";
+      case 6: return "Sexto";
+      case 7: return "Sétimo";
+      case 8: return "Octavo";
+      case 9: return "Noveno";
+      case 10: return "Décimo";
+      default: return `${n}º`;
+    }
+  }
   return (
     <>
       <Badge variant="secondary" className="mb-6 inline-flex">
@@ -20,8 +40,8 @@ export function CycleStep({ selected, cycles, onSelect }: CycleStepProps) {
         Selecciona tu ciclo académico actual
       </p>
 
-      <div className="space-y-3 max-w-xs mx-auto">
-        {cycles.map((cycle) => (
+  <div className="space-y-3 max-w-xs mx-auto max-h-96 overflow-auto scrollbar-none">
+        {allCycles.map((cycle) => (
           <button
             key={cycle.id}
             onClick={() => onSelect(cycle.id)}
