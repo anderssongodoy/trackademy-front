@@ -74,6 +74,10 @@ class OnboardingService {
     }
   }
 
+  async patchOnboarding(_data: Partial<OnboardingFormData>, _token?: string): Promise<boolean> {
+    return true;
+  }
+
   async fetchCampuses(token?: string): Promise<Campus[]> {
     try {
       const headers: HeadersInit = { "Content-Type": "application/json" };
