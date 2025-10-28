@@ -50,7 +50,7 @@ export default function OnboardingPage() {
       if (!idToken) return;
       try {
         const status = await onboardingService.getOnboardingStatus(idToken);
-        if (mounted && status === true) router.push("/dashboard");
+        if (mounted && status === true) router.push("/home");
       } catch {
         // ignore
       }
@@ -67,7 +67,7 @@ export default function OnboardingPage() {
       if (!okCourses) return;
       const success = await submitOnboarding();
       if (success) {
-        router.push("/dashboard");
+        router.push("/home");
       }
     } else {
       await savePartial();
@@ -76,7 +76,7 @@ export default function OnboardingPage() {
   };
 
   const handleSkip = () => {
-    router.push("/dashboard");
+    router.push("/home");
   };
 
   return (
@@ -178,29 +178,16 @@ export default function OnboardingPage() {
             </div>
           )}
           {currentStep === 5 && (
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Cursos</h2>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">ID de periodo</label>
-                <input value={formData.termId || ""} onChange={e => updateFormData({ termId: Number(e.target.value) })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="Ej: 2025-1" />
-              </div>
-              <div>
-                <label className="block text-white/80 mb-2">Cursos (separados por coma)</label>
-                <input
-                  value={formData.courses?.map(c => c.courseCode ?? "").join(", ") || ""}
-                  onChange={e =>
-                    updateFormData({
-                      courses: e.target.value
-                        .split(",")
-                        .map(code => ({ courseCode: code.trim() }))
-                        .filter(c => c.courseCode)
-                    })
-                  }
-                  className="w-full rounded-md bg-[#18132a] border border-[#a21caf] p-3 text-white"
-                  placeholder="Ej: Matemáticas, Física..."
-                />
-              </div>
-            </div>
+  <div>
+    <h2 className="text-2xl font-bold text-white mb-6">Cursos</h2>
+    <CoursesStep
+      token={idToken}
+      termId={formData.termId}
+      programId={formData.program}
+      courses={formData.courses}
+      onUpdate={(data) => updateFormData(data)}
+    />
+  </div>
           )}
           {currentStep === 6 && (
             <div>
@@ -242,3 +229,6 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+
+

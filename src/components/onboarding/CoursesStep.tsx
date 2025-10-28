@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -10,19 +9,20 @@ export type CourseEntry = { courseId?: number; courseCode?: string };
 
 interface Props {
   token?: string;
-  termId?: number;
+  termId?: number;  
+  programId?: string | number; // carrera seleccionada
   courses?: CourseEntry[];
   onUpdate: (data: Partial<{ termId?: number; termCode?: string; courses: CourseEntry[] }>) => void;
 }
 
-export default function CoursesStep({ token, termId, courses = [], onUpdate }: Props) {
+export default function CoursesStep({ token, termId, programId, courses = [], onUpdate }: Props) {
   const [terms, setTerms] = useState<Term[]>([]);
   const [catalog, setCatalog] = useState<CourseItem[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showManual, setShowManual] = useState(false);
   const [selectedTermCode, setSelectedTermCode] = useState<string | undefined>(undefined);
 
+  // Cargar periodos; no actualizar al padre para evitar loops.
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -32,23 +32,33 @@ export default function CoursesStep({ token, termId, courses = [], onUpdate }: P
         setTerms(t);
         if (termId) {
           const found = t.find((x) => x.id === termId) ?? null;
-          if (found) {
-            setSelectedTermCode(found.code ?? String(found.id));
-            onUpdate({ termId: found.id, termCode: found.code });
-          }
+          if (found) setSelectedTermCode(found.code ?? String(found.id));
         }
       } catch {
         if (!mounted) return;
         setTerms([]);
       }
     })();
+    return () => {
+      mounted = false;
+    };
+  }, [token, termId]);
 
+  // Cargar cursos por carrera; depende solo de carrera (programId) y token.
+  useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         setLoading(true);
-        const all = await onboardingService.fetchCourses(undefined, token);
-        if (!mounted) return;
-        setCatalog(all);
+        const pid = programId ? Number(programId) : NaN;
+        if (!Number.isNaN(pid)) {
+          const list = await onboardingService.fetchCursosPorCarrera(pid, token);
+          if (!mounted) return;
+          setCatalog(list.map((c) => ({ id: c.id, code: c.codigo, name: c.nombre })) as CourseItem[]);
+        } else {
+          if (!mounted) return;
+          setCatalog([]);
+        }
       } catch {
         if (!mounted) return;
         setCatalog([]);
@@ -56,9 +66,10 @@ export default function CoursesStep({ token, termId, courses = [], onUpdate }: P
         if (mounted) setLoading(false);
       }
     })();
-
-    return () => { mounted = false; };
-  }, [token, termId, onUpdate]);
+    return () => {
+      mounted = false;
+    };
+  }, [token, programId]);
 
   const results = useMemo(() => {
     if (!query) return catalog;
@@ -69,13 +80,6 @@ export default function CoursesStep({ token, termId, courses = [], onUpdate }: P
   const handleAddFromCatalog = (item: CourseItem) => {
     if (courses.some((c) => c.courseId === item.id || c.courseCode === item.code)) return;
     onUpdate({ courses: [...courses, { courseId: item.id, courseCode: item.code }] });
-  };
-
-  const handleAddManual = (code: string) => {
-    const san = code.trim();
-    if (!san) return;
-    if (courses.some((c) => c.courseCode === san)) return;
-    onUpdate({ courses: [...courses, { courseCode: san }] });
   };
 
   const handleRemove = (index: number) => onUpdate({ courses: courses.filter((_, i) => i !== index) });
@@ -89,21 +93,23 @@ export default function CoursesStep({ token, termId, courses = [], onUpdate }: P
 
   return (
     <div className="space-y-6">
-      <div className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <div>
-          <label className="block text-white/80 mb-1">Término académico</label>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-4">
+          <label className="block text-white/80 mb-1">Periodo</label>
           <select
             value={selectedTermCode ?? ""}
             onChange={(e) => onTermSelect(e.target.value)}
             className="w-full rounded-xl bg-white/10 border border-white/20 p-3 text-white"
           >
-            <option value="">Selecciona el término...</option>
+            <option value="">Selecciona el periodo...</option>
             {terms.map((term) => (
-              <option key={term.id} value={term.code ?? String(term.id)}>{term.code || term.name || term.id}</option>
+              <option key={term.id} value={term.code ?? String(term.id)}>
+                {term.name || term.code || term.id}
+              </option>
             ))}
           </select>
         </div>
-        <div className="sm:col-span-2">
+        <div className="md:col-span-8">
           <label className="block text-white/80 mb-1">Buscar cursos</label>
           <input
             value={query}
@@ -113,43 +119,32 @@ export default function CoursesStep({ token, termId, courses = [], onUpdate }: P
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="max-h-64 overflow-auto rounded-xl scrollbar-none">
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-6 max-h-72 overflow-auto rounded-xl scrollbar-none">
+          <div className="font-bold text-white mb-2">Catálogo de cursos</div>
           {catalog.length === 0 ? (
             <div className="text-white/60 text-center">No hay cursos disponibles.</div>
           ) : (
             results.map((course) => (
-              <div key={course.id} className="bg-white/10 border border-white/20 rounded-xl p-4 mb-2 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-white">{course.code} - {course.name}</div>
-                  <div className="text-xs text-white/60">Créditos {course.credits} · Horas {course.weeklyHours}</div>
+              <div key={course.id} className="bg-white/10 border border-white/20 rounded-xl p-4 mb-3 flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="font-bold text-white truncate">{course.code} - {course.name}</div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleAddFromCatalog(course)}
-                >
-                  Añadir
-                </Button>
+                <Button size="sm" variant="secondary" onClick={() => handleAddFromCatalog(course)}>Añadir</Button>
               </div>
             ))
           )}
         </div>
-        <div className="max-h-64 overflow-auto rounded-xl scrollbar-none">
+        <div className="md:col-span-6 max-h-72 overflow-auto rounded-xl scrollbar-none">
           <div className="font-bold text-white mb-2">Cursos seleccionados</div>
           {courses.length === 0 ? (
             <div className="text-white/60">Aún no agregaste cursos. Puedes continuar y registrar luego.</div>
           ) : (
             courses.map((c, i) => (
               <div key={i} className="bg-white/10 border border-white/20 rounded-xl p-3 mb-2 flex items-center justify-between">
-                <span className="text-white font-semibold">{c.courseCode || c.courseId}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleRemove(i)}
-                >
-                  Quitar
-                </Button>
+                <span className="text-white font-semibold truncate">{c.courseCode || c.courseId}</span>
+                <Button size="sm" variant="outline" onClick={() => handleRemove(i)}>Quitar</Button>
               </div>
             ))
           )}

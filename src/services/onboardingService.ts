@@ -1,245 +1,218 @@
-import { OnboardingFormData, OnboardingResponse, ApiError, Campus, Cycle, Program, Enrollment, CurrentCoursesPayload } from "@/types/onboarding";
-import { CourseItem, Term } from "@/types/onboarding";
+import {
+  OnboardingFormData,
+  OnboardingResponse,
+  ApiError,
+  Campus,
+  Cycle,
+  Program,
+  Enrollment,
+  CurrentCoursesPayload,
+  CourseItem,
+  Term,
+} from "@/types/onboarding";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+const UNI_ID = Number(process.env.NEXT_PUBLIC_UNIVERSIDAD_ID || "20");
 
 class OnboardingService {
   async submitOnboarding(data: OnboardingFormData, token?: string): Promise<OnboardingResponse> {
     try {
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
+      const periodoId = Number.isFinite(Number(data.termId)) && Number(data.termId) > 0 ? Number(data.termId) : undefined;
+
+      let carreraId: number | undefined = undefined;
+      if (data.program) {
+        const asNum = Number(data.program);
+        if (!Number.isNaN(asNum) && asNum > 0) {
+          carreraId = asNum;
+        } else {
+          const carreras = await this.fetchCarreras(token).catch(() => [] as Array<{ id: number; nombre: string }>);
+          const match = carreras.find((c) => c.nombre?.toLowerCase?.() === String(data.program).toLowerCase());
+          if (match) carreraId = Number(match.id);
+        }
       }
 
-      const payload = {
-        campus: data.campus,
-        cycle: data.cycle,
-        program: data.program,
-        specialization: data.specialization,
-        careerInterests: data.careerInterests,
-        studyHoursPerDay: data.studyHoursPerDay,
-        learningStyle: data.learningStyle,
-        motivationFactors: data.motivationFactors,
-        wantsAlerts: data.wantsAlerts,
-        wantsIncentives: data.wantsIncentives,
-        allowDataSharing: data.allowDataSharing,
-        preferredStudyTimes: data.preferredStudyTimes,
-        workHoursPerWeek: data.workHoursPerWeek,
-        extracurricularHoursPerWeek: data.extracurricularHoursPerWeek,
-        weeklyAvailabilityJson: data.weeklyAvailabilityJson,
-      };
-
-      const response = await fetch(`${API_BASE}/onboarding/submit`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw {
-          message: errorData.message || "Error al enviar datos de onboarding",
-        } as ApiError;
+      let campusId: number | undefined = undefined;
+      if (data.campus) {
+        const asNum = Number(data.campus);
+        if (!Number.isNaN(asNum) && asNum > 0) campusId = asNum;
       }
 
-      return await response.json();
+      let cursoIds: number[] = [];
+      const inputCourses = data.courses || [];
+      const explicitIds = inputCourses.filter((c) => typeof c.courseId === "number").map((c) => Number(c.courseId));
+      cursoIds.push(...explicitIds);
+      const codes = inputCourses.map((c) => c.courseCode).filter((v): v is string => !!v);
+      if (codes.length && carreraId) {
+        const catalog = await this.fetchCursosPorCarrera(carreraId, token).catch(() => [] as Array<{ id: number; codigo: string; nombre: string }>);
+        const byCode = new Map(catalog.map((c) => [String(c.codigo).toLowerCase(), Number(c.id)]));
+        for (const code of codes) {
+          const id = byCode.get(String(code).toLowerCase());
+          if (id) cursoIds.push(id);
+        }
+      }
+      cursoIds = Array.from(new Set(cursoIds)).filter((n) => typeof n === "number" && !Number.isNaN(n));
+
+      if (!campusId || !Number.isFinite(campusId) || campusId <= 0) throw { message: "Selecciona un campus válido" } as ApiError;
+      if (!periodoId || !Number.isFinite(periodoId) || periodoId <= 0) throw { message: "Selecciona un periodo válido" } as ApiError;
+      if (!carreraId || !Number.isFinite(carreraId) || carreraId <= 0) throw { message: "Selecciona una carrera válida" } as ApiError;
+      if (!cursoIds.length) throw { message: "Debe seleccionar al menos un curso" } as ApiError;
+
+      const payload = { campusId, periodoId, carreraId, cursoIds } as const;
+      // Debug temporal: ayuda a verificar payload en consola del navegador
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line no-console
+        console.debug("POST /onboarding payload", payload);
+      }
+      const res = await fetch(`${API_BASE}/onboarding`, { method: "POST", headers, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw { message: errorData.message || "Error al enviar datos de onboarding" } as ApiError;
+      }
+      await res.json().catch(() => null);
+      return { success: true, message: "ok" } as OnboardingResponse;
     } catch (error) {
-      if (error instanceof Error) {
-        throw {
-          message: error.message,
-        } as ApiError;
-      }
+      if (error instanceof Error) throw { message: error.message } as ApiError;
       throw error;
     }
   }
 
-  async getOnboardingMe(token?: string): Promise<Partial<OnboardingFormData> | null> {
-    try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}/onboarding/me`, { method: "GET", headers });
-      if (!response.ok) return null;
-      return await response.json();
-    } catch {
-      return null;
-    }
+  async getOnboardingMe(_token?: string): Promise<Partial<OnboardingFormData> | null> {
+    return null;
   }
 
-  async patchOnboarding(data: Partial<OnboardingFormData>, token?: string): Promise<boolean> {
-    try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}/onboarding/me`, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify(data),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+  async patchOnboarding(_data: Partial<OnboardingFormData>, _token?: string): Promise<boolean> {
+    return true;
   }
-
-  
 
   async fetchCampuses(token?: string): Promise<Campus[]> {
     try {
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
+      const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}/campuses`, {
-        method: "GET",
-        headers,
-      });
-      if (!response.ok) throw new Error("Error al obtener campuses");
-      return await response.json();
-    } catch (error) {
+      const url = `${API_BASE}/catalog/campus?universidadId=${encodeURIComponent(String(UNI_ID))}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) return [];
+      const data = (await res.json()) as Array<{ id: number | string; nombre: string }>;
+      return data.map((c) => ({ id: String(c.id), name: c.nombre })) as Campus[];
+    } catch {
       return [];
     }
   }
 
-  async fetchCycles(token?: string): Promise<Cycle[]> {
-    try {
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}/cycles`, {
-        method: "GET",
-        headers,
-      });
-      if (!response.ok) throw new Error("Error al obtener ciclos");
-      return await response.json();
-    } catch (error) {
-      return [];
-    }
+  async fetchCycles(_token?: string): Promise<Cycle[]> {
+    return [];
   }
 
   async fetchPrograms(token?: string): Promise<Program[]> {
     try {
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
+      const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}/programs`, {
-        method: "GET",
-        headers,
-      });
-      if (!response.ok) throw new Error("Error al obtener programas");
-      return await response.json();
-    } catch (error) {
+      const url = `${API_BASE}/catalog/carreras?universidadId=${encodeURIComponent(String(UNI_ID))}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) return [];
+      const carreras = (await res.json()) as Array<{ id: number; nombre: string; codigo?: string }>;
+      return carreras.map((c) => ({ id: String(c.id), name: c.nombre, code: c.codigo })) as Program[];
+    } catch {
       return [];
     }
   }
 
+  async fetchCarreras(token?: string): Promise<Array<{ id: number; nombre: string }>> {
+    try {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = `${API_BASE}/catalog/carreras?universidadId=${encodeURIComponent(String(UNI_ID))}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) return [];
+      return (await res.json()) as Array<{ id: number; nombre: string }>;
+    } catch {
+      return [];
+    }
+  }
+
+  async fetchCursosPorCarrera(carreraId: number, token?: string): Promise<Array<{ id: number; codigo: string; nombre: string }>> {
+    try {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = `${API_BASE}/catalog/cursos?carreraId=${encodeURIComponent(String(carreraId))}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) return [];
+      return (await res.json()) as Array<{ id: number; codigo: string; nombre: string }>;
+    } catch {
+      return [];
+    }
+  }
+
+  async fetchCursoDetalle(id: number, token?: string): Promise<{
+    id: number;
+    codigo: string;
+    nombre: string;
+    horasSemanales?: number | null;
+    silaboDescripcion?: string | null;
+    resultadosAprendizaje: Array<{ id: number; texto: string; tipo?: string | null; unidadId?: number | null }>;
+    unidades: Array<{ id?: number; numero: number; titulo?: string | null; temas: Array<{ id: number; titulo: string }> }>
+    evaluaciones: Array<{ id: number; codigo: string; descripcion: string | null; semana: number | null; porcentaje: number }>;
+    bibliografia: string[];
+    competencias: string[];
+    politicas: Array<{ seccion: string; texto: string }>;
+  } | null> {
+    try {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/catalog/curso/${encodeURIComponent(String(id))}`, { headers });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
   async fetchTerms(token?: string): Promise<Term[]> {
     try {
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/terms`, { headers });
-      if (!res.ok) throw new Error("Error al obtener términos");
-      const data: unknown = await res.json();
-      const arr = Array.isArray(data) ? data : [];
-      return arr.map((raw) => {
-        const t = raw as Record<string, unknown>;
-        const id = Number((t.id as number | string | undefined) ?? (t.termId as number | string | undefined) ?? 0);
-        const code = String((t.code as string | undefined) ?? (t.termCode as string | undefined) ?? (t.name as string | undefined) ?? "");
-        const name = String((t.name as string | undefined) ?? (t.label as string | undefined) ?? (t.code as string | undefined) ?? `Término ${t.id as string | number}`);
-        const active = Boolean((t.active as boolean | undefined) ?? (t.current as boolean | undefined) ?? false);
-        return { id, code, name, active };
+      const url = `${API_BASE}/catalog/periodos?universidadId=${encodeURIComponent(String(UNI_ID))}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) return [];
+      const data = (await res.json()) as Array<{ id: number | string; etiqueta?: string | null; fechaInicio?: string | null; fechaFin?: string | null }>;
+      const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      return data.map((p) => {
+        const etiqueta = p.etiqueta || String(p.id);
+        let nombre = etiqueta;
+        if (p.fechaInicio) {
+          const d = new Date(p.fechaInicio);
+          if (!isNaN(d.getTime())) nombre = `${etiqueta} ${meses[d.getMonth()]}`;
+        }
+        return { id: Number(p.id), code: etiqueta, name: nombre } as Term;
       });
     } catch {
       return [];
     }
   }
 
-  async getTermByCode(code: string, token?: string): Promise<Term | null> {
-    try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/terms/by-code/${encodeURIComponent(code)}`, { headers });
-      if (!res.ok) return null;
-      const t = await res.json();
-      return {
-        id: Number(t.id ?? t.termId ?? 0),
-        code: String(t.code ?? t.termCode ?? t.name ?? code),
-        name: String(t.name ?? t.label ?? t.code ?? code),
-        active: Boolean(t.active ?? t.current ?? false),
-      } as Term;
-    } catch {
-      return null;
-    }
+  async getTermByCode(_code: string, _token?: string): Promise<any | null> {
+    return null;
   }
 
-  async getOnboardingStatus(token?: string): Promise<boolean | null> {
-    try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/onboarding/status`, { headers });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (!data) return null;
-      // expect { onboarded: boolean }
-      if (typeof (data as any).onboarded === "boolean") return (data as any).onboarded;
-      return null;
-    } catch {
-      return null;
-    }
+  async getOnboardingStatus(_token?: string): Promise<boolean | null> {
+    return null;
   }
 
-  async getTermById(id: number, token?: string): Promise<Term | null> {
-    try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/terms/${encodeURIComponent(String(id))}`, { headers });
-      if (!res.ok) return null;
-      const t = await res.json();
-      return {
-        id: Number(t.id ?? t.termId ?? id),
-        code: String(t.code ?? t.termCode ?? t.name ?? String(id)),
-        name: String(t.name ?? t.label ?? t.code ?? String(id)),
-        active: Boolean(t.active ?? t.current ?? false),
-      } as Term;
-    } catch {
-      return null;
-    }
+  async getTermById(_id: number, _token?: string): Promise<any | null> {
+    return null;
   }
 
-  async fetchMyEnrollments(token: string): Promise<Enrollment[]> {
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE}/enrollments/me`, { headers });
-    if (!response.ok) throw new Error("Error al obtener matrículas");
-    return await response.json();
+  async fetchMyEnrollments(_token: string): Promise<Enrollment[]> {
+    return [];
   }
 
-  // GET /api/courses returns all courses. Keep q optional for client-side filtering.
-  async fetchCourses(q?: string, token?: string): Promise<CourseItem[]> {
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const url = `${API_BASE}/courses${q ? `?q=${encodeURIComponent(q)}` : ""}`;
-    const res = await fetch(url, { headers });
-    if (!res.ok) return [];
-    return await res.json();
+  async fetchCourses(_q?: string, _token?: string): Promise<CourseItem[]> {
+    return [];
   }
 
-  async submitCourses(payload: CurrentCoursesPayload, token?: string): Promise<boolean> {
-    try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}/onboarding/courses`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+  async submitCourses(_payload: CurrentCoursesPayload, _token?: string): Promise<boolean> {
+    return true;
   }
 }
 
