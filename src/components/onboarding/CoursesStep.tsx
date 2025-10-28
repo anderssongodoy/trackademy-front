@@ -19,7 +19,7 @@ export default function CoursesStep({ token, termId, programId, courses = [], on
   const [terms, setTerms] = useState<Term[]>([]);
   const [catalog, setCatalog] = useState<CourseItem[]>([]);
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [selectedTermCode, setSelectedTermCode] = useState<string | undefined>(undefined);
 
   // Cargar periodos; no actualizar al padre para evitar loops.
@@ -153,3 +153,4 @@ export default function CoursesStep({ token, termId, programId, courses = [], on
     </div>
   );
 }
+

@@ -3,13 +3,11 @@ import Link from "next/link";
 
 interface NavbarProps {
   showUserMenu?: boolean;
-  userEmail?: string;
   userName?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   showUserMenu = false,
-  userEmail,
   userName,
 }) => {
   return (

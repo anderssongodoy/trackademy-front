@@ -33,23 +33,7 @@ export default function OnboardingPage() {
     clearError,
   } = useOnboarding(idToken);
 
-  // If the user already finished onboarding on the backend, skip the flow
-  useEffect(() => {
-    let mounted = true;
-    const check = async () => {
-      if (!idToken) return;
-      try {
-        const status = await onboardingService.getOnboardingStatus(idToken);
-        if (mounted && status === true) router.push("/home");
-      } catch {
-        // ignore
-      }
-    };
-    check();
-    return () => {
-      mounted = false;
-    };
-  }, [idToken, router]);
+  // Nota: la verificación de estado de onboarding se omite porque no existe el endpoint actual.
 
   const handleNext = async () => {
     if (currentStep === 6) {
@@ -65,9 +49,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSkip = () => {
-    router.push("/home");
-  };
+  // handleSkip removido por no usarse
 
   return (
     <div className="min-h-screen bg-[#18132a] flex flex-col items-center justify-center px-4 py-8">
