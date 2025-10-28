@@ -5,12 +5,25 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { onboardingService } from "@/services/onboardingService";
 
+type TemaDto = { id: number; titulo: string };
+type UnidadDto = { numero: number; titulo?: string | null; temas: TemaDto[] };
+type EvaluacionDto = { id: number; codigo?: string | null; descripcion?: string | null; semana: number | null; porcentaje: number };
+type CursoDetalleDto = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  silaboDescripcion?: string | null;
+  unidades: UnidadDto[];
+  evaluaciones: EvaluacionDto[];
+  bibliografia: string[];
+};
+
 export default function CursoDetallePage() {
   const params = useParams();
   const id = Number(params?.id);
   const { data: session } = useSession();
   const token = (session as unknown as { idToken?: string } | null)?.idToken ?? "";
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<CursoDetalleDto | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,12 +59,12 @@ export default function CursoDetallePage() {
               <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
                 <h2 className="text-xl font-bold text-white mb-2">Unidades</h2>
                 <div className="space-y-3">
-                  {data.unidades?.map((u: any) => (
+                  {data.unidades?.map((u: UnidadDto) => (
                     <div key={`${u.numero}-${u.titulo}`} className="bg-white/10 border border-white/20 rounded-xl p-4">
                       <div className="text-white font-semibold">Unidad {u.numero}: {u.titulo || ""}</div>
                       {u.temas?.length ? (
                         <ul className="list-disc pl-6 text-white/70 text-sm mt-1">
-                          {u.temas.map((t: any) => (<li key={t.id}>{t.titulo}</li>))}
+                          {u.temas.map((t: TemaDto) => (<li key={t.id}>{t.titulo}</li>))}
                         </ul>
                       ) : null}
                     </div>
@@ -62,7 +75,7 @@ export default function CursoDetallePage() {
               <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
                 <h2 className="text-xl font-bold text-white mb-2">Evaluaciones</h2>
                 <div className="space-y-3">
-                  {data.evaluaciones?.map((e: any) => (
+                  {data.evaluaciones?.map((e: EvaluacionDto) => (
                     <div key={e.id} className="bg-white/10 border border-white/20 rounded-xl p-3">
                       <div className="text-white font-medium">{e.codigo || e.descripcion || "Evaluación"}</div>
                       <div className="text-white/60 text-sm">{e.porcentaje}% {e.semana ? `• Semana ${e.semana}` : ""}</div>
@@ -88,4 +101,3 @@ export default function CursoDetallePage() {
     </div>
   );
 }
-

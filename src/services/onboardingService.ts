@@ -3,11 +3,7 @@ import {
   OnboardingResponse,
   ApiError,
   Campus,
-  Cycle,
   Program,
-  Enrollment,
-  CurrentCoursesPayload,
-  CourseItem,
   Term,
 } from "@/types/onboarding";
 
@@ -61,9 +57,8 @@ class OnboardingService {
       if (!cursoIds.length) throw { message: "Debe seleccionar al menos un curso" } as ApiError;
 
       const payload = { campusId, periodoId, carreraId, cursoIds } as const;
-      // Debug temporal: ayuda a verificar payload en consola del navegador
+      // Debug: payload puede inspeccionarse en DevTools si es necesario
       if (typeof window !== "undefined") {
-        // eslint-disable-next-line no-console
         console.debug("POST /onboarding payload", payload);
       }
       const res = await fetch(`${API_BASE}/onboarding`, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -79,14 +74,6 @@ class OnboardingService {
     }
   }
 
-  async getOnboardingMe(_token?: string): Promise<Partial<OnboardingFormData> | null> {
-    return null;
-  }
-
-  async patchOnboarding(_data: Partial<OnboardingFormData>, _token?: string): Promise<boolean> {
-    return true;
-  }
-
   async fetchCampuses(token?: string): Promise<Campus[]> {
     try {
       const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -99,10 +86,6 @@ class OnboardingService {
     } catch {
       return [];
     }
-  }
-
-  async fetchCycles(_token?: string): Promise<Cycle[]> {
-    return [];
   }
 
   async fetchPrograms(token?: string): Promise<Program[]> {
@@ -189,30 +172,6 @@ class OnboardingService {
     } catch {
       return [];
     }
-  }
-
-  async getTermByCode(_code: string, _token?: string): Promise<any | null> {
-    return null;
-  }
-
-  async getOnboardingStatus(_token?: string): Promise<boolean | null> {
-    return null;
-  }
-
-  async getTermById(_id: number, _token?: string): Promise<any | null> {
-    return null;
-  }
-
-  async fetchMyEnrollments(_token: string): Promise<Enrollment[]> {
-    return [];
-  }
-
-  async fetchCourses(_q?: string, _token?: string): Promise<CourseItem[]> {
-    return [];
-  }
-
-  async submitCourses(_payload: CurrentCoursesPayload, _token?: string): Promise<boolean> {
-    return true;
   }
 }
 

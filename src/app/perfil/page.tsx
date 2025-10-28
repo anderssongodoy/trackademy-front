@@ -103,28 +103,31 @@ export default function PerfilPage() {
               onClick={async () => {
                 if (!canSave) return;
                 setSaving(true);
-                await onboardingService.submitOnboarding(
-                  {
-                    campus,
-                    program,
-                    cycle: 0,
-                    careerInterests: [],
-                    studyHoursPerDay: 0,
-                    learningStyle: "",
-                    motivationFactors: [],
-                    wantsAlerts: true,
-                    wantsIncentives: true,
-                    allowDataSharing: false,
-                    preferredStudyTimes: [],
-                    workHoursPerWeek: 0,
-                    extracurricularHoursPerWeek: 0,
-                    weeklyAvailabilityJson: "{}",
-                    termId,
-                    courses,
-                  },
-                  token
-                ).catch(() => ({ success: false, message: "Error" } as any));
-                setSaving(false);
+                try {
+                  await onboardingService.submitOnboarding(
+                    {
+                      campus,
+                      program,
+                      cycle: 0,
+                      careerInterests: [],
+                      studyHoursPerDay: 0,
+                      learningStyle: "",
+                      motivationFactors: [],
+                      wantsAlerts: true,
+                      wantsIncentives: true,
+                      allowDataSharing: false,
+                      preferredStudyTimes: [],
+                      workHoursPerWeek: 0,
+                      extracurricularHoursPerWeek: 0,
+                      weeklyAvailabilityJson: "{}",
+                      termId,
+                      courses,
+                    },
+                    token
+                  );
+                } finally {
+                  setSaving(false);
+                }
               }}
               className="border border-[#7c3aed] text-white/90 px-4 py-2 rounded-xl hover:text-white"
             >

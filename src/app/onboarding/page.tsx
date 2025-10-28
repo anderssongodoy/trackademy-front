@@ -5,16 +5,6 @@ import { Button } from "@/components/ui";
 import { motion } from "framer-motion";
 import { FaCheckCircle } from "react-icons/fa";
 import { useOnboarding } from "@/hooks/useOnboarding";
-import { CampusStep } from "@/components/onboarding/CampusStep";
-import { CycleStep } from "@/components/onboarding/CycleStep";
-import { ProgramStep } from "@/components/onboarding/ProgramStep";
-import { CareerInterestsStep } from "@/components/onboarding/CareerInterestsStep";
-import { LearningStyleStep } from "@/components/onboarding/LearningStyleStep";
-import { MotivationFactorsStep } from "@/components/onboarding/MotivationFactorsStep";
-import { PreferencesStep } from "@/components/onboarding/PreferencesStep";
-import { ProgressBar } from "@/components/onboarding/ProgressBar";
-import { TimeAvailabilityStep } from "@/components/onboarding/TimeAvailabilityStep";
-import { ConfirmationStep } from "@/components/onboarding/ConfirmationStep";
 import CoursesStep from "@/components/onboarding/CoursesStep";
 import React, { useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -87,7 +77,7 @@ export default function OnboardingPage() {
             <FaCheckCircle className="text-[#7c3aed] text-3xl mr-2" />
             <h1 className="text-3xl sm:text-4xl font-black text-white">Onboarding</h1>
           </div>
-          <motion.div initial={{ width: 0 }} animate={{ width: `${(currentStep/6)*100}%` }} className="h-2 rounded-full bg-[#7c3aed] mb-8" />
+          <motion.div initial={{ width: 0 }} animate={{ width: `${(currentStep / 6) * 100}%` }} className="h-2 rounded-full bg-[#7c3aed] mb-8" />
         </div>
         <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="bg-[#23203b] border border-[#7c3aed] rounded-3xl p-8 sm:p-12 text-left min-h-96 flex flex-col justify-between shadow-lg">
           {currentStep === 1 && (
@@ -178,16 +168,16 @@ export default function OnboardingPage() {
             </div>
           )}
           {currentStep === 5 && (
-  <div>
-    <h2 className="text-2xl font-bold text-white mb-6">Cursos</h2>
-    <CoursesStep
-      token={idToken}
-      termId={formData.termId}
-      programId={formData.program}
-      courses={formData.courses}
-      onUpdate={(data) => updateFormData(data)}
-    />
-  </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">Cursos</h2>
+              <CoursesStep
+                token={idToken}
+                termId={formData.termId}
+                programId={formData.program}
+                courses={formData.courses}
+                onUpdate={(data) => updateFormData(data)}
+              />
+            </div>
           )}
           {currentStep === 6 && (
             <div>
