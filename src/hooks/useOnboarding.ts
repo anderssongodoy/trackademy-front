@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+﻿import { useState, useCallback, useEffect } from "react";
 import { OnboardingFormData, Campus, Cycle, Program, ApiError } from "@/types/onboarding";
 import { onboardingService } from "@/services/onboardingService";
 
@@ -101,8 +101,8 @@ export function useOnboarding(token: string): UseOnboardingReturn {
           setError("Por favor selecciona un programa");
           return false;
         }
-        if (!formData.cycle) {
-          setError("Por favor selecciona un ciclo academico");
+        if (!formData.termId) {
+          setError("Por favor selecciona un periodo");
           return false;
         }
         break;
@@ -145,7 +145,7 @@ export function useOnboarding(token: string): UseOnboardingReturn {
   }, [formData, validateStep, token]);
 
   const submitCourses = useCallback(async (): Promise<boolean> => {
-    // En la API actual, los cursos se envían con submitOnboarding
+    // En la API actual, los cursos se envÃ­an con submitOnboarding
     return true;
   }, []);
 
@@ -199,4 +199,5 @@ export function useOnboarding(token: string): UseOnboardingReturn {
     clearError,
   };
 }
+
 

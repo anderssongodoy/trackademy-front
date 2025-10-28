@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { onboardingService } from "@/services/onboardingService";
 import CoursesStep, { type CourseEntry } from "@/components/onboarding/CoursesStep";
 import meService from "@/services/meService";
+import { getLoginStatus } from "@/services/accountService";
 
 type BasicItem = { id: string; name: string };
 
@@ -34,6 +35,16 @@ export default function PerfilPage() {
       setCampuses(c.map((x) => ({ id: x.id, name: x.name })));
       setPrograms(p.map((x) => ({ id: x.id, name: x.name })));
       setPeriodos(t.map((x) => ({ id: x.id, code: x.code, name: x.name })));
+      // Prefill de perfil (campus/carrera/periodo)
+      try {
+        const status = await getLoginStatus(token);
+        if (status) {
+          if (status.campusId) setCampus(String(status.campusId));
+          if (status.carreraId) setProgram(String(status.carreraId));
+          if (status.periodoId) setTermId(Number(status.periodoId));
+        }
+      } catch {}
+
 
       // Prefill: cursos del usuario (si existen)
       const misCursos = await meService.getCursos(token);
@@ -57,8 +68,8 @@ export default function PerfilPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-white/80 mb-1">Campus</label>
-              <select value={campus} onChange={(e) => setCampus(e.target.value)} className="w-full rounded-xl bg-white/10 border border-white/20 p-3 text-white">
-                <option value="">Selecciona tu campus</option>
+              <select value={campus} onChange={(e) => setCampus(e.target.value)} className="w-full rounded-xl bg-[#18132a] border border-[#7c3aed] p-3 text-white">
+                {!campus && (<option value="">Selecciona tu campus</option>)}
                 {campuses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -66,8 +77,8 @@ export default function PerfilPage() {
             </div>
             <div>
               <label className="block text-white/80 mb-1">Carrera</label>
-              <select value={program} onChange={(e) => setProgram(e.target.value)} className="w-full rounded-xl bg-white/10 border border-white/20 p-3 text-white">
-                <option value="">Selecciona tu carrera</option>
+              <select value={program} onChange={(e) => setProgram(e.target.value)} className="w-full rounded-xl bg-[#18132a] border border-[#7c3aed] p-3 text-white">
+                {!program && (<option value="">Selecciona tu carrera</option>)}
                 {programs.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -75,8 +86,8 @@ export default function PerfilPage() {
             </div>
             <div>
               <label className="block text-white/80 mb-1">Periodo</label>
-              <select value={termId ?? ""} onChange={(e) => setTermId(Number(e.target.value))} className="w-full rounded-xl bg-white/10 border border-white/20 p-3 text-white">
-                <option value="">Selecciona el periodo</option>
+              <select value={termId ?? ""} onChange={(e) => setTermId(Number(e.target.value))} className="w-full rounded-xl bg-[#18132a] border border-[#7c3aed] p-3 text-white">
+                {!termId && (<option value="">Selecciona el periodo</option>)}
                 {periodos.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
@@ -139,3 +150,6 @@ export default function PerfilPage() {
     </div>
   );
 }
+
+
+

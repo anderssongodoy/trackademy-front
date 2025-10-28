@@ -1,4 +1,4 @@
-import {
+﻿import {
   OnboardingFormData,
   OnboardingResponse,
   ApiError,
@@ -51,9 +51,9 @@ class OnboardingService {
       }
       cursoIds = Array.from(new Set(cursoIds)).filter((n) => typeof n === "number" && !Number.isNaN(n));
 
-      if (!campusId || !Number.isFinite(campusId) || campusId <= 0) throw { message: "Selecciona un campus válido" } as ApiError;
-      if (!periodoId || !Number.isFinite(periodoId) || periodoId <= 0) throw { message: "Selecciona un periodo válido" } as ApiError;
-      if (!carreraId || !Number.isFinite(carreraId) || carreraId <= 0) throw { message: "Selecciona una carrera válida" } as ApiError;
+      if (!campusId || !Number.isFinite(campusId) || campusId <= 0) throw { message: "Selecciona un campus vÃ¡lido" } as ApiError;
+      if (!periodoId || !Number.isFinite(periodoId) || periodoId <= 0) throw { message: "Selecciona un periodo vÃ¡lido" } as ApiError;
+      if (!carreraId || !Number.isFinite(carreraId) || carreraId <= 0) throw { message: "Selecciona una carrera vÃ¡lida" } as ApiError;
       if (!cursoIds.length) throw { message: "Debe seleccionar al menos un curso" } as ApiError;
 
       const payload = { campusId, periodoId, carreraId, cursoIds } as const;
@@ -74,9 +74,7 @@ class OnboardingService {
     }
   }
 
-  async patchOnboarding(_data: Partial<OnboardingFormData>, _token?: string): Promise<boolean> {
-    return true;
-  }
+  async patchOnboarding(_data: Partial<OnboardingFormData>, _token?: string): Promise<boolean> {    void _data;  void _token;   return true;  }
 
   async fetchCampuses(token?: string): Promise<Campus[]> {
     try {
@@ -180,3 +178,4 @@ class OnboardingService {
 }
 
 export const onboardingService = new OnboardingService();
+

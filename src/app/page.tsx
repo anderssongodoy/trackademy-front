@@ -1,21 +1,42 @@
-
 "use client";
 
 import { useSession, signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
+import { getLoginStatus, type LoginStatus } from "@/services/accountService";
 
 export default function Landing() {
   const { data: session } = useSession();
+  const [status, setStatus] = useState<"idle" | "checking" | "needs" | "ok">("idle");
+  const token = (session as unknown as { idToken?: string } | null)?.idToken;
 
-  const handleMainClick = () => {
-    if (!session) {
-      void signIn("microsoft-entra-id");
-      return;
-    }
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!token) { setStatus("idle"); return; }
+      setStatus("checking");
+      const s: LoginStatus | null = await getLoginStatus(token);
+      if (!mounted) return;
+      if (s && s.needsOnboarding) setStatus("needs");
+      else if (s && !s.needsOnboarding) setStatus("ok");
+      else setStatus("ok");
+    })();
+    return () => { mounted = false; };
+  }, [token]);
+
+  const onPrimary = () => {
+    if (!session) { void signIn("microsoft-entra-id"); return; }
+    if (status === "needs") { window.location.href = "/onboarding"; return; }
     window.location.href = "/home";
   };
 
-  const mainButtonText = !session ? "Iniciar sesión" : "Ir a mi espacio";
+  const buttonText = !session
+    ? "Iniciar sesión"
+    : status === "checking"
+      ? "Entrando..."
+      : status === "needs"
+        ? "Completa tu onboarding"
+        : "Ir a mi espacio";
 
   return (
     <div className="min-h-screen bg-[#18132a] flex flex-col items-center justify-center px-4 py-8">
@@ -31,10 +52,11 @@ export default function Landing() {
           <Button
             size="lg"
             className="bg-[#7c3aed] hover:bg-[#a21caf] text-white font-bold px-8 py-4 text-lg shadow-lg"
-            onClick={handleMainClick}
+            onClick={onPrimary}
+            disabled={status === "checking"}
             fullWidth
           >
-            {mainButtonText}
+            {buttonText}
           </Button>
         </div>
       </div>

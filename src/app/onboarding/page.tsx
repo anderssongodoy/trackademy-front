@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
@@ -6,14 +6,32 @@ import { motion } from "framer-motion";
 import { FaCheckCircle } from "react-icons/fa";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import CoursesStep from "@/components/onboarding/CoursesStep";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { onboardingService } from "@/services/onboardingService";
+import { Term } from "@/types/onboarding";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const idToken = (session as unknown as { idToken?: string } | null)?.idToken ?? "";
+  const [terms, setTerms] = useState<Term[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!idToken) return;
+      try {
+        const t = await onboardingService.fetchTerms(idToken);
+        if (!mounted) return;
+        setTerms(t);
+      } catch {
+        if (!mounted) return;
+        setTerms([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [idToken]);
 
   const {
     currentStep,
@@ -33,8 +51,6 @@ export default function OnboardingPage() {
     clearError,
   } = useOnboarding(idToken);
 
-  // Nota: la verificación de estado de onboarding se omite porque no existe el endpoint actual.
-
   const handleNext = async () => {
     if (currentStep === 6) {
       const okCourses = await submitCourses();
@@ -48,8 +64,6 @@ export default function OnboardingPage() {
       nextStep();
     }
   };
-
-  // handleSkip removido por no usarse
 
   return (
     <div className="min-h-screen bg-[#18132a] flex flex-col items-center justify-center px-4 py-8">
@@ -66,22 +80,22 @@ export default function OnboardingPage() {
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Preferencias</h2>
               <div className="mb-6">
-                <label className="block text-white/80 mb-2">¿Quieres recibir alertas académicas?</label>
+                <label className="block text-white/80 mb-2">Quieres recibir alertas academicas?</label>
                 <input type="checkbox" checked={formData.wantsAlerts} onChange={e => updateFormData({ wantsAlerts: e.target.checked })} className="accent-[#7c3aed] w-5 h-5" />
               </div>
               <div className="mb-6">
-                <label className="block text-white/80 mb-2">¿Te interesan incentivos y recompensas?</label>
+                <label className="block text-white/80 mb-2">Te interesan incentivos y recompensas?</label>
                 <input type="checkbox" checked={formData.wantsIncentives} onChange={e => updateFormData({ wantsIncentives: e.target.checked })} className="accent-[#a21caf] w-5 h-5" />
               </div>
               <div>
-                <label className="block text-white/80 mb-2">¿Permites compartir tus datos para mejorar la experiencia?</label>
+                <label className="block text-white/80 mb-2">Permites compartir tus datos para mejorar la experiencia?</label>
                 <input type="checkbox" checked={formData.allowDataSharing} onChange={e => updateFormData({ allowDataSharing: e.target.checked })} className="accent-[#c7d2fe] w-5 h-5" />
               </div>
             </div>
           )}
           {currentStep === 2 && (
             <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Datos Académicos</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">Datos Academicos</h2>
               <div className="mb-6">
                 <label className="block text-white/80 mb-2">Campus</label>
                 <select value={formData.campus || ""} onChange={e => updateFormData({ campus: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white">
@@ -100,14 +114,31 @@ export default function OnboardingPage() {
               </div>
               <div className="mb-6">
                 <label className="block text-white/80 mb-2">Ciclo</label>
-                <select value={formData.cycle || ""} onChange={e => updateFormData({ cycle: Number(e.target.value) })} className="w-full rounded-md bg-[#18132a] border border-[#c7d2fe] p-3 text-white">
+                <select
+                  value={formData.cycle || ""}
+                  onChange={e => updateFormData({ cycle: Number(e.target.value) })}
+                  className="w-full rounded-md bg-[#18132a] border border-[#c7d2fe] p-3 text-white"
+                >
                   <option value="">Selecciona tu ciclo</option>
-                  {cycles.map(c => <option key={String(c)} value={String(c)}>{String(c)}</option>)}
+                  {(cycles as unknown as Array<number | { id: number; label?: string } | string>).map((c) => { const value = typeof c === 'number' ? c : (typeof c === 'string' ? c : (c?.id ?? '')); const label = typeof c === 'number' ? String(c) : (typeof c === 'string' ? c : (c?.label ?? String(c?.id ?? ''))); return (<option key={String(value)} value={String(value)}>{label}</option>); })}
                 </select>
               </div>
-              <div>
-                <label className="block text-white/80 mb-2">Especialización (opcional)</label>
-                <input value={formData.specialization || ""} onChange={e => updateFormData({ specialization: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="IA, Cloud, ..." />
+              <div className="mb-6">
+                <label className="block text-white/80 mb-2">Periodo</label>
+                <select
+                  value={formData.termId ? String(formData.termId) : ""}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const id = val ? Number(val) : undefined;
+                    updateFormData({ termId: id });
+                  }}
+                  className="w-full rounded-md bg-[#18132a] border border-[#c7d2fe] p-3 text-white"
+                >
+                  <option value="">Selecciona el periodo</option>
+                  {terms.map(t => (
+                    <option key={t.id} value={String(t.id)}>{t.name || t.code || String(t.id)}</option>
+                  ))}
+                </select>
               </div>
             </div>
           )}
@@ -115,15 +146,19 @@ export default function OnboardingPage() {
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Intereses y Estilo de Aprendizaje</h2>
               <div className="mb-6">
+                <label className="block text-white/80 mb-2">Especializacion (opcional)</label>
+                <input value={formData.specialization || ""} onChange={e => updateFormData({ specialization: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="IA, Cloud, ..." />
+              </div>
+              <div className="mb-6">
                 <label className="block text-white/80 mb-2">Intereses profesionales</label>
                 <input value={formData.careerInterests?.join(", ") || ""} onChange={e => updateFormData({ careerInterests: e.target.value.split(",") })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="Ej: IA, Cloud, Web" />
               </div>
               <div className="mb-6">
                 <label className="block text-white/80 mb-2">Estilo de aprendizaje</label>
-                <input value={formData.learningStyle || ""} onChange={e => updateFormData({ learningStyle: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#a21caf] p-3 text-white" placeholder="Visual, Auditivo, Kinestésico..." />
+                <input value={formData.learningStyle || ""} onChange={e => updateFormData({ learningStyle: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#a21caf] p-3 text-white" placeholder="Visual, Auditivo, Kinestesico..." />
               </div>
               <div>
-                <label className="block text-white/80 mb-2">Factores de motivación</label>
+                <label className="block text-white/80 mb-2">Factores de motivacion</label>
                 <input value={formData.motivationFactors?.join(", ") || ""} onChange={e => updateFormData({ motivationFactors: e.target.value.split(",") })} className="w-full rounded-md bg-[#18132a] border border-[#c7d2fe] p-3 text-white" placeholder="Ej: Logros, Comunidad..." />
               </div>
             </div>
@@ -132,7 +167,7 @@ export default function OnboardingPage() {
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Disponibilidad y Horarios</h2>
               <div className="mb-6">
-                <label className="block text-white/80 mb-2">Horas de estudio por día</label>
+                <label className="block text-white/80 mb-2">Horas de estudio por dia</label>
                 <input type="number" value={formData.studyHoursPerDay || ""} onChange={e => updateFormData({ studyHoursPerDay: Number(e.target.value) })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="Ej: 2" />
               </div>
               <div className="mb-6">
@@ -163,7 +198,7 @@ export default function OnboardingPage() {
           )}
           {currentStep === 6 && (
             <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Confirmación</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">Confirmacion</h2>
               <div className="mb-6">
                 <p className="text-white/80">Revisa tus datos antes de continuar:</p>
                 <pre className="bg-[#18132a] border border-[#7c3aed] rounded-md p-4 text-white text-sm mt-4">{JSON.stringify(formData, null, 2)}</pre>
@@ -172,7 +207,7 @@ export default function OnboardingPage() {
           )}
           {error && (
             <div className="mt-6 p-4 bg-red-500/20 border border-red-500/40 rounded-xl flex items-start gap-3">
-              <span className="text-xl">⚠️</span>
+              <span className="text-xl">!</span>
               <div className="text-left">
                 <p className="text-sm text-red-100">{error}</p>
                 <button onClick={clearError} className="text-xs text-red-300 hover:text-red-200 mt-1 underline">Cerrar</button>
@@ -181,15 +216,15 @@ export default function OnboardingPage() {
           )}
           <div className="flex gap-3 justify-center pt-8">
             {currentStep > 1 && (
-              <Button variant="outline" size="md" onClick={prevStep} disabled={isSubmitting} className="bg-[#18132a] border border-[#7c3aed] text-white">← Atrás</Button>
+              <Button variant="outline" size="md" onClick={prevStep} disabled={isSubmitting} className="bg-[#18132a] border border-[#7c3aed] text-white">Atras</Button>
             )}
             <Button variant="primary" size="lg" onClick={handleNext} disabled={isSubmitting || loading} className="flex-1 bg-[#7c3aed] hover:bg-[#a21caf] text-white font-bold">
               {isSubmitting ? (
-                <span className="animate-spin mr-2">⏳</span>
+                <span className="animate-spin mr-2">○</span>
               ) : currentStep === 6 ? (
-                "Completar ✨"
+                "Completar"
               ) : (
-                "Siguiente →"
+                "Siguiente"
               )}
             </Button>
           </div>
@@ -201,6 +236,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-
-
