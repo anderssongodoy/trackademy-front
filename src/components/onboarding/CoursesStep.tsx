@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui";
 import { onboardingService } from "@/services/onboardingService";
-import { CourseItem, Term } from "@/types/onboarding";
+import { CourseItem } from "@/types/onboarding";
 
 export type CourseEntry = { courseId?: number; courseCode?: string };
 
@@ -15,31 +15,12 @@ interface Props {
   onUpdate: (data: Partial<{ termId?: number; termCode?: string; courses: CourseEntry[] }>) => void;
 }
 
-export default function CoursesStep({ token, termId, programId, courses = [], onUpdate }: Props) {
-  const [terms, setTerms] = useState<Term[]>([]);
+export default function CoursesStep({ token, termId: _termId, programId, courses = [], onUpdate }: Props) {
   const [catalog, setCatalog] = useState<CourseItem[]>([]);
   const [query, setQuery] = useState("");
-  const [selectedTermCode, setSelectedTermCode] = useState<string | undefined>(undefined);
 
   // Load periods
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const t = await onboardingService.fetchTerms(token);
-        if (!mounted) return;
-        setTerms(t);
-        if (termId) {
-          const found = t.find((x) => x.id === termId);
-          if (found) setSelectedTermCode(found.code ?? String(found.id));
-        }
-      } catch {
-        if (!mounted) return;
-        setTerms([]);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [token, termId]);
+  // Periodo se maneja en el Step 2
 
   // Load catalog by career
   useEffect(() => {
@@ -76,12 +57,6 @@ export default function CoursesStep({ token, termId, programId, courses = [], on
 
   const removeCourse = (index: number) => onUpdate({ courses: courses.filter((_, i) => i !== index) });
 
-  const onTermSelect = (val: string) => {
-    const code = val || undefined;
-    setSelectedTermCode(code);
-    const found = terms.find((t) => (t.code ?? String(t.id)) === val);
-    onUpdate({ termId: found?.id, ...(code ? { termCode: code } : {}) });
-  };
 
   return (
     <div className="space-y-6">
@@ -151,3 +126,6 @@ export default function CoursesStep({ token, termId, programId, courses = [], on
     </div>
   );
 }
+
+
+

@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+﻿const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export type LoginStatus = {
   needsOnboarding: boolean;
@@ -12,13 +12,17 @@ export type LoginStatus = {
   cursosCount: number;
 };
 
-export async function getLoginStatus(token?: string): Promise<LoginStatus | null> {
+export async function getLoginStatus(token?: string, userImage?: string): Promise<LoginStatus | null> {
   try {
+    const headers: HeadersInit = {
+      Authorization: token ? `Bearer ${token}` : "",
+      "Content-Type": "application/json",
+    };
+    if (userImage) {
+      (headers as Record<string, string>)["X-User-Image"] = userImage;
+    }
     const res = await fetch(`${API_BASE}/me/status`, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-        "Content-Type": "application/json",
-      },
+      headers,
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -27,4 +31,5 @@ export async function getLoginStatus(token?: string): Promise<LoginStatus | null
     return null;
   }
 }
+
 

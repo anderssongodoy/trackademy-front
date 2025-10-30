@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useSession, signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -8,21 +8,22 @@ import { getLoginStatus, type LoginStatus } from "@/services/accountService";
 export default function Landing() {
   const { data: session } = useSession();
   const [status, setStatus] = useState<"idle" | "checking" | "needs" | "ok">("idle");
-  const token = (session as unknown as { idToken?: string } | null)?.idToken;
+  const token = (session as { idToken?: string; user?: { image?: string } } | null)?.idToken;
+  const userImage = (session as { idToken?: string; user?: { image?: string } } | null)?.user?.image;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       if (!token) { setStatus("idle"); return; }
       setStatus("checking");
-      const s: LoginStatus | null = await getLoginStatus(token);
+      const s: LoginStatus | null = await getLoginStatus(token, userImage);
       if (!mounted) return;
       if (s && s.needsOnboarding) setStatus("needs");
       else if (s && !s.needsOnboarding) setStatus("ok");
       else setStatus("ok");
     })();
     return () => { mounted = false; };
-  }, [token]);
+  }, [token, userImage]);
 
   const onPrimary = () => {
     if (!session) { void signIn("microsoft-entra-id"); return; }
@@ -63,4 +64,15 @@ export default function Landing() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
 
