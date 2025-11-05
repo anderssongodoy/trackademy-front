@@ -25,8 +25,8 @@ import { beginLoading, endLoading } from "@/lib/loadingBus";
 async function fetchJson<T>(path: string, token?: string): Promise<T | null> {
   try {
     beginLoading();
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (token) (headers as any).Authorization = `Bearer ${token}`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`${API_BASE}${path}`, {
       headers,
       cache: "no-store",
@@ -44,7 +44,7 @@ async function postJson(path: string, body: unknown, token?: string): Promise<bo
   try {
     beginLoading();
     const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (token) (headers as any).Authorization = `Bearer ${token}`;
+    if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`;
     const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers,
@@ -65,7 +65,7 @@ export const meService = {
   postNota: async (id: number, nota: string, token?: string): Promise<boolean> => {
     try {
       const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) (headers as any).Authorization = `Bearer ${token}`;
+      if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/me/evaluaciones/${encodeURIComponent(String(id))}/nota`, {
         method: "POST",
         headers,
@@ -79,7 +79,7 @@ export const meService = {
   setRecordatorios: async (anticipacionDias: number, token?: string): Promise<boolean> => {
     try {
       const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) (headers as any).Authorization = `Bearer ${token}`;
+      if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/me/preferencias/recordatorios`, {
         method: "POST",
         headers,

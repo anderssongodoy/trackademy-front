@@ -17,7 +17,7 @@ import { beginLoading, endLoading } from "@/lib/loadingBus";
 export async function getLoginStatus(token?: string, userImage?: string): Promise<LoginStatus | null> {
   try {
     const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (token) (headers as any).Authorization = `Bearer ${token}`;
+    if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
     if (userImage) {
       (headers as Record<string, string>)["X-User-Image"] = userImage;
     }

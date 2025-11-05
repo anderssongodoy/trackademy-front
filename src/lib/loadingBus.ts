@@ -7,7 +7,7 @@ const END = "app:loading:end";
 
 export function beginLoading(text?: string) {
   if (typeof document !== "undefined") {
-    document.dispatchEvent(new CustomEvent<LoadingEventDetail>(BEGIN, { detail: { text } } as any));
+    document.dispatchEvent(new CustomEvent<LoadingEventDetail>(BEGIN, { detail: { text } }));
   }
 }
 
@@ -21,11 +21,11 @@ export function subscribe(onBegin: (text?: string) => void, onEnd: () => void) {
   if (typeof document === "undefined") return () => {};
   const hBegin = (e: Event) => onBegin((e as CustomEvent<LoadingEventDetail>).detail?.text);
   const hEnd = () => onEnd();
-  document.addEventListener(BEGIN, hBegin as any);
-  document.addEventListener(END, hEnd as any);
+  document.addEventListener(BEGIN, hBegin as EventListener);
+  document.addEventListener(END, hEnd as EventListener);
   return () => {
-    document.removeEventListener(BEGIN, hBegin as any);
-    document.removeEventListener(END, hEnd as any);
+    document.removeEventListener(BEGIN, hBegin as EventListener);
+    document.removeEventListener(END, hEnd as EventListener);
   };
 }
 

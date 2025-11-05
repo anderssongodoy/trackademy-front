@@ -112,8 +112,8 @@ export default function HitosCalendarPage() {
       const status = await getLoginStatus(token);
       if (status?.periodoId) {
         try {
-          const headers: HeadersInit = { "Content-Type": "application/json" };
-          if (token) (headers as any).Authorization = `Bearer ${token}`;
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (token) headers.Authorization = `Bearer ${token}`;
           const res = await fetch(`${API_BASE}/catalog/periodos?universidadId=${encodeURIComponent(String(UNI_ID))}`, {
             headers,
             cache: "no-store",
