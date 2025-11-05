@@ -12,15 +12,16 @@ export type LoginStatus = {
   cursosCount: number;
 };
 
+import { beginLoading, endLoading } from "@/lib/loadingBus";
+
 export async function getLoginStatus(token?: string, userImage?: string): Promise<LoginStatus | null> {
   try {
-    const headers: HeadersInit = {
-      Authorization: token ? `Bearer ${token}` : "",
-      "Content-Type": "application/json",
-    };
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) (headers as any).Authorization = `Bearer ${token}`;
     if (userImage) {
       (headers as Record<string, string>)["X-User-Image"] = userImage;
     }
+    beginLoading();
     const res = await fetch(`${API_BASE}/me/status`, {
       headers,
       cache: "no-store",
@@ -29,6 +30,8 @@ export async function getLoginStatus(token?: string, userImage?: string): Promis
     return (await res.json()) as LoginStatus;
   } catch {
     return null;
+  } finally {
+    endLoading();
   }
 }
 

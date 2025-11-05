@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { LoadingProvider } from "@/components/ui/LoaderOverlay";
 
 export const metadata: Metadata = {
   title: "Trackademy - Gestión Académica Inteligente",
@@ -21,9 +22,12 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className="antialiased bg-linear-to-br from-slate-50 to-slate-100">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <LoadingProvider>
+            {children}
+          </LoadingProvider>
+        </SessionProvider>
       </body>
     </html>
   );
 }
-

@@ -2,11 +2,12 @@
 
 Base: `${BACKEND_URL}/api`
 Auth: `Authorization: Bearer <access_token Microsoft Entra ID>`
+Content-Type: `application/json`
 Zona horaria: America/Lima
 
-Ejemplo curl: `curl -H "Authorization: Bearer $TOKEN" $BACKEND_URL/api/me`
+Nota: Todos los endpoints (salvo health) requieren JWT válido.
 
-## Tipos comunes (resÃºmenes)
+## Tipos comunes (resumen)
 
 - CarreraDto: `{ id: number, nombre: string }`
 - CursoDto: `{ id: number, codigo: string, nombre: string }`
@@ -16,7 +17,7 @@ Ejemplo curl: `curl -H "Authorization: Bearer $TOKEN" $BACKEND_URL/api/me`
 - ResultadoAprendizajeDto: `{ id: number, texto: string, tipo?: string|null, unidadId?: number|null }`
 - NotaPoliticaDto: `{ seccion?: string|null, texto?: string|null }`
 - CursoDetailDto: `{ id, codigo, nombre, horasSemanales?, silaboDescripcion?, resultadosAprendizaje[], unidades[], evaluaciones[], bibliografia[], competencias[], politicas[] }`
-- UsuarioEvaluacionDto: `{ id, codigo, descripcion, semana, porcentaje, fechaEstimada?, nota? }` (nota es string o null)
+- UsuarioEvaluacionDto: `{ id, codigo, descripcion, semana, porcentaje, fechaEstimada?, nota? }`
 - UsuarioCursoResumenDto: `{ cursoId, cursoNombre, evaluaciones: UsuarioEvaluacionDto[] }`
 - OnboardingRequest: `{ campusId: number, periodoId: number, carreraId: number, cursoIds: number[] }`
 
@@ -25,16 +26,18 @@ Ejemplo curl: `curl -H "Authorization: Bearer $TOKEN" $BACKEND_URL/api/me`
 ## Salud
 
 GET `/health`
+- Objetivo: Verificar que el servicio está vivo.
 - Auth: no
-- 200 Response: `{ "status": "ok" }`
+- 200: `{ "status": "ok" }`
 
 ---
 
 ## Usuario
 
 GET `/me`
-- Auth: sÃ­
-- 200 Ejemplo:
+- Objetivo: Inspeccionar claims del token recibido por el backend.
+- Auth: sí
+- 200 ejemplo:
 ```
 {
   "sub": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
@@ -44,14 +47,34 @@ GET `/me`
 }
 ```
 
+GET `/me/status`
+- Objetivo: Decidir flujo post-login. Crea/actualiza Usuario si no existe y reporta si falta onboarding.
+- Auth: sí
+- Headers opcionales: `X-User-Image` o `X-User-Avatar` para persistir avatar (base64 o URL)
+- 200 ejemplo:
+```
+{
+  "needsOnboarding": true,
+  "missing": ["perfil", "campus", "periodo", "carrera", "cursos"],
+  "usuarioId": 42,
+  "subject": "RuuAw...",
+  "email": "u24209904@utp.edu.pe",
+  "campusId": null,
+  "periodoId": null,
+  "carreraId": null,
+  "cursosCount": 0
+}
+```
+
 GET `/me/cursos`
-- Auth: sÃ­
-- 200 Ejemplo:
+- Objetivo: Listar cursos activos del usuario con evaluaciones clonadas.
+- Auth: sí
+- 200 ejemplo:
 ```
 [
   {
     "cursoId": 123,
-    "cursoNombre": "CÃ¡lculo I",
+    "cursoNombre": "Cálculo I",
     "evaluaciones": [
       {"id": 1, "codigo": "PC1", "descripcion": null, "semana": 4, "porcentaje": 15.0, "fechaEstimada": "2025-04-01", "nota": null}
     ]
@@ -60,9 +83,9 @@ GET `/me/cursos`
 ```
 
 GET `/me/evaluaciones`
-- Auth: sÃ­
-- Devuelve prÃ³ximas 3 semanas
-- 200 Ejemplo:
+- Objetivo: Próximas evaluaciones (ventana 3 semanas).
+- Auth: sí
+- 200 ejemplo:
 ```
 [
   {"id": 10, "codigo": "EP", "descripcion": "Examen Parcial", "semana": 8, "porcentaje": 30.0, "fechaEstimada": "2025-05-06", "nota": null}
@@ -70,17 +93,20 @@ GET `/me/evaluaciones`
 ```
 
 POST `/me/evaluaciones/{id}/nota`
-- Auth: sÃ­
+- Objetivo: Registrar/actualizar nota y recalcular resumen del curso.
+- Auth: sí
 - Body: `{ "nota": "15" }`
 - 204 sin contenido
 
 POST `/me/preferencias/recordatorios`
-- Auth: sÃ­
+- Objetivo: Crear/actualizar preferencias globales de recordatorios.
+- Auth: sí
 - Body: `{ "anticipacionDias": 3 }`
 - 204
 
 POST `/me/horario`
-- Auth: sÃ­
+- Objetivo: Definir/actualizar bloques de estudio por curso (45 min cada bloque).
+- Auth: sí
 - Body:
 ```
 [
@@ -91,49 +117,69 @@ POST `/me/horario`
 - 204
 
 POST `/me/habitos`
-- Auth: sÃ­
+- Objetivo: Crear hábito del usuario.
+- Auth: sí
 - Body: `{ "titulo": "Leer 30min", "frecuencia": "diaria" }`
-- 200 Response: `123` (id)
+- 200: `123` (id creado)
 
 POST `/me/habitos/{id}/log`
-- Auth: sÃ­
-- Body: `{ "fecha": "2025-04-10" }` (opcional)
+- Objetivo: Marcar cumplimiento del hábito en una fecha específica.
+- Auth: sí
+- Body: `{ "fecha": "2025-04-10" }` (opcional; default hoy)
 - 204
 
 GET `/me/recomendaciones`
-- Auth: sÃ­
-- 200 Response: `[ "Repasar Ã¡lgebra antes del viernes" ]`
+- Objetivo: Listar recomendaciones activas.
+- Auth: sí
+- 200: `string[]`
+
+POST `/me/avatar`
+- Objetivo: Actualizar avatar del usuario (base64 o URL).
+- Auth: sí
+- Body: `{ "image": "data:image/jpeg;base64,..." }`
+- 204
 
 ---
 
-## CatÃ¡logo
+## Catálogo
+
+GET `/catalog/campus?universidadId={id}`
+- Objetivo: Listar campus por universidad.
+- Auth: sí
+- 200: `[ {"id": 3, "nombre": "Lima Centro"}, ... ]`
+
+GET `/catalog/periodos?universidadId={id}`
+- Objetivo: Listar periodos por universidad.
+- Auth: sí
+- 200: `[ {"id": 1, "etiqueta": "2025-1", "fechaInicio": "2025-03-04", "fechaFin": "2025-07-20"}, ... ]`
 
 GET `/catalog/carreras?universidadId={id}`
-- Auth: sÃ­
-- 200 Ejemplo: `[ {"id": 1, "nombre": "IngenierÃ­a de Sistemas"} ]`
+- Objetivo: Listar carreras por universidad.
+- Auth: sí
+- 200: `[ {"id": 1, "nombre": "Ingeniería de Sistemas"}, ... ]`
 
 GET `/catalog/cursos?carreraId={id}`
-- Auth: sÃ­
-- 200 Ejemplo: `[ {"id": 100, "codigo": "MAT101", "nombre": "MatemÃ¡tica I"} ]`
+- Objetivo: Listar cursos por carrera.
+- Auth: sí
+- 200: `[ {"id": 100, "codigo": "MAT101", "nombre": "Matemática I"}, ... ]`
 
 GET `/catalog/curso/{id}`
-- Auth: sÃ­
-- 200 Ejemplo (parcial):
+- Objetivo: Detalle completo del curso (sílabo/unidades/evaluaciones/bibliografía/competencias/políticas).
+- Auth: sí
+- 200 ejemplo (parcial):
 ```
 {
   "id": 100,
   "codigo": "MAT101",
-  "nombre": "MatemÃ¡tica I",
+  "nombre": "Matemática I",
   "horasSemanales": 4,
-  "silaboDescripcion": "IntroducciÃ³n al cÃ¡lculo...",
+  "silaboDescripcion": "Introducción al cálculo...",
   "resultadosAprendizaje": [ {"id":1, "texto": "Desarrolla...", "tipo": "general", "unidadId": null} ],
-  "unidades": [
-    {"id": 1, "numero": 1, "titulo": "LÃ­mites", "temas": [ {"id": 11, "titulo": "DefiniciÃ³n de lÃ­mite"} ]}
-  ],
+  "unidades": [ {"id": 1, "numero": 1, "titulo": "Límites", "temas": [ {"id": 11, "titulo": "Definición de límite"} ]} ],
   "evaluaciones": [ {"id": 9, "codigo": "PC1", "descripcion": null, "semana": 4, "porcentaje": 15.0} ],
-  "bibliografia": ["Stewart, CÃ¡lculo"],
-  "competencias": ["Pensamiento crÃ­tico"],
-  "politicas": [ {"seccion": "CÃ¡lculo de nota", "texto": "Se promedian..."} ]
+  "bibliografia": ["Stewart, Cálculo"],
+  "competencias": ["Pensamiento crítico"],
+  "politicas": [ {"seccion": "Cálculo de nota", "texto": "Se promedian..."} ]
 }
 ```
 
@@ -142,29 +188,35 @@ GET `/catalog/curso/{id}`
 ## Onboarding
 
 POST `/onboarding`
-- Auth: sÃ­
-- Body: `{ "campusId": 1, "periodoId": 2, "carreraId": 3, "cursoIds": [100,101] }`
-- 200 Response: `UsuarioCursoResumenDto[]` (igual estructura que `/me/cursos`)
+- Objetivo: Completar onboarding del usuario: guarda perfil (campus/periodo/carrera), crea relación con cursos y clona evaluaciones.
+- Auth: sí
+- Headers opcionales: `X-User-Image` o `X-User-Avatar` para guardar avatar si aún no existe.
+- Body:
+```
+{ "campusId": 1, "periodoId": 2, "carreraId": 3, "cursoIds": [100,101] }
+```
+- 200: `UsuarioCursoResumenDto[]` (misma forma que `/me/cursos`)
 
 ---
 
 ## Admin (opcional)
 
 POST `/admin/ingesta/json`
-- Auth: sÃ­ (restringir en despliegue)
-- Body: JSON del extractor (sÃ­labo/cursos)
-- 202 Response: `{ "status": "accepted" }`
+- Objetivo: Ingestar JSON de sílabo/cursos (idempotente) — proteger con API key / roles en prod.
+- Auth: sí
+- Body: JSON del extractor
+- 202: `{ "status": "accepted" }`
 
 ---
 
-## Errores estÃ¡ndar
+## Errores estándar
 
-- 401 Unauthorized: token ausente/ invÃ¡lido (issuer/audience)
-- 403 Forbidden: intento de acceder a recursos de otro usuario
+- 401 Unauthorized: token ausente / inválido (issuer/audience)
+- 403 Forbidden: recurso de otro usuario
 - 404 Not Found: id inexistente
-- 409 Conflict: violaciÃ³n de clave Ãºnica (ingesta/admin)
-- 400 Bad Request: validaciÃ³n de body/params
+- 409 Conflict: violación de clave única (ingesta/admin)
+- 400 Bad Request: validación de body/params
 
 Notas:
-- CORS: backend permite orÃ­genes configurados en `trackademy.cors.allowed-origins`.
-- OPTIONS preflight es manejado automÃ¡ticamente por el backend.
+- CORS: definir orígenes en `trackademy.cors.allowed-origins` (agregar `https://trackademy.trinitylabs.app`).
+- OPTIONS (preflight) es gestionado automáticamente.

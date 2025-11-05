@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useSession, signIn } from "next-auth/react";
+import { beginLoading } from "@/lib/loadingBus";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 import { getLoginStatus, type LoginStatus } from "@/services/accountService";
@@ -26,7 +27,7 @@ export default function Landing() {
   }, [token, userImage]);
 
   const onPrimary = () => {
-    if (!session) { void signIn("microsoft-entra-id"); return; }
+    if (!session) { beginLoading("Iniciando sesión..."); void signIn("microsoft-entra-id"); return; }
     if (status === "needs") { window.location.href = "/onboarding"; return; }
     window.location.href = "/home";
   };

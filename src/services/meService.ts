@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+﻿const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export type UsuarioEvaluacionDto = {
   id: number;
@@ -11,24 +11,50 @@ export type UsuarioEvaluacionDto = {
 };
 
 export type UsuarioCursoResumenDto = {
+  usuarioCursoId: number;
   cursoId: number;
   cursoNombre: string;
   evaluaciones: UsuarioEvaluacionDto[];
 };
 
+export type DiaPreferenciaItem = { usuarioCursoId: number; diaSemana: number };
+export type HorarioBloque = { usuarioCursoId: number; diaSemana: number; horaInicio: string; duracionMin: number };
+
+import { beginLoading, endLoading } from "@/lib/loadingBus";
+
 async function fetchJson<T>(path: string, token?: string): Promise<T | null> {
   try {
+    beginLoading();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) (headers as any).Authorization = `Bearer ${token}`;
     const res = await fetch(`${API_BASE}${path}`, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-        "Content-Type": "application/json",
-      },
+      headers,
       cache: "no-store",
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
     return null;
+  } finally {
+    endLoading();
+  }
+}
+
+async function postJson(path: string, body: unknown, token?: string): Promise<boolean> {
+  try {
+    beginLoading();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) (headers as any).Authorization = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    return res.status === 204 || res.ok;
+  } catch {
+    return false;
+  } finally {
+    endLoading();
   }
 }
 
@@ -38,12 +64,11 @@ export const meService = {
   getRecomendaciones: (token?: string) => fetchJson<string[]>("/me/recomendaciones", token),
   postNota: async (id: number, nota: string, token?: string): Promise<boolean> => {
     try {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) (headers as any).Authorization = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/me/evaluaciones/${encodeURIComponent(String(id))}/nota`, {
         method: "POST",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ nota }),
       });
       return res.status === 204 || res.ok;
@@ -53,12 +78,11 @@ export const meService = {
   },
   setRecordatorios: async (anticipacionDias: number, token?: string): Promise<boolean> => {
     try {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) (headers as any).Authorization = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/me/preferencias/recordatorios`, {
         method: "POST",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ anticipacionDias }),
       });
       return res.status === 204 || res.ok;
@@ -66,6 +90,11 @@ export const meService = {
       return false;
     }
   },
+  getHorario: (token?: string, usuarioCursoId?: number) =>
+    fetchJson<HorarioBloque[]>(`/me/horario${usuarioCursoId ? `?usuarioCursoId=${encodeURIComponent(String(usuarioCursoId))}` : ""}`, token),
+  getHitosPreferencias: (token?: string) => fetchJson<DiaPreferenciaItem[]>(`/me/hitos/preferencias`, token),
+  postHitosPreferencias: (items: DiaPreferenciaItem[], token?: string) => postJson(`/me/hitos/preferencias`, { items }, token),
+  postHorario: (blocks: HorarioBloque[], token?: string) => postJson(`/me/horario`, blocks, token),
 };
 
 export default meService;

@@ -14,6 +14,7 @@ export default function PerfilPage() {
   type ClientSession = { idToken?: string; user?: { image?: string } } | null;
   const token = (session as ClientSession)?.idToken ?? "";
   const userImage = (session as ClientSession)?.user?.image;
+  const user = (session as { user?: { image?: string | null; name?: string | null } } | null)?.user;
 
   const [campuses, setCampuses] = useState<BasicItem[]>([]);
   const [programs, setPrograms] = useState<BasicItem[]>([]);
@@ -68,7 +69,22 @@ export default function PerfilPage() {
   return (
     <div className="min-h-screen bg-[#18132a] px-4 py-10">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl sm:text-4xl font-black text-white mb-6">Perfil</h1>
+        {/* Header con navegación */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <a href="/home" className="text-white/70 hover:text-white underline text-sm">Inicio</a>
+            <h1 className="text-3xl sm:text-4xl font-black text-white mt-1">Perfil</h1>
+          </div>
+          <div className="relative">
+            <button className="w-9 h-9 rounded-full bg-white/10 border border-white/20 text-white flex items-center justify-center overflow-hidden hover:bg-white/15">
+              {user?.image ? (
+                <img src={user.image} alt={user?.name || "Usuario"} className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-semibold">{(user?.name || "U").trim().charAt(0).toUpperCase()}</span>
+              )}
+            </button>
+          </div>
+        </div>
 
         <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6 mb-6">
           <h2 className="text-xl font-bold text-white mb-4">Datos académicos</h2>
@@ -133,7 +149,7 @@ export default function PerfilPage() {
               if (data.courses) setCourses(data.courses);
             }}
           />
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end mt-6 sticky bottom-4 z-10">
             <button
               disabled={!canSave || saving}
               onClick={async () => {

@@ -45,9 +45,10 @@ export default function CoursesStep({ token, termId: _termId, programId, courses
   }, [token, programId]);
 
   const results = useMemo(() => {
-    if (!query) return catalog;
-    const q = query.trim().toLowerCase();
-    return catalog.filter((c) => `${c.code} ${c.name}`.toLowerCase().includes(q));
+    const base = !query
+      ? catalog
+      : catalog.filter((c) => `${c.code} ${c.name}`.toLowerCase().includes(query.trim().toLowerCase()));
+    return [...base].sort((a, b) => a.name.localeCompare(b.name));
   }, [catalog, query]);
 
   const addCourse = (item: CourseItem) => {
@@ -111,9 +112,11 @@ export default function CoursesStep({ token, termId: _termId, programId, courses
                         <div className="text-white/50 text-xs">{course.code}</div>
                       </div>
                       {isSelected ? (
-                        <span className="text-xs text-white/60">Agregado</span>
+                        <Button size="sm" variant="outline" onClick={() => onUpdate({ courses: courses.filter(c => c.courseId !== course.id && c.courseCode !== course.code) })}>
+                          Quitar
+                        </Button>
                       ) : (
-                        <Button size="sm" variant="secondary" onClick={() => addCourse(course)}>Anadir</Button>
+                        <Button size="sm" variant="secondary" onClick={() => addCourse(course)}>Añadir</Button>
                       )}
                     </li>
                   );
