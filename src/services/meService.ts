@@ -58,6 +58,25 @@ async function postJson(path: string, body: unknown, token?: string): Promise<bo
   }
 }
 
+async function putJsonReturn<T>(path: string, body: unknown, token?: string): Promise<T | null> {
+  try {
+    beginLoading();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  } finally {
+    endLoading();
+  }
+}
+
 export const meService = {
   getCursos: (token?: string) => fetchJson<UsuarioCursoResumenDto[]>("/me/cursos", token),
   getEvaluaciones: (token?: string) => fetchJson<UsuarioEvaluacionDto[]>("/me/evaluaciones", token),
@@ -95,6 +114,10 @@ export const meService = {
   getHitosPreferencias: (token?: string) => fetchJson<DiaPreferenciaItem[]>(`/me/hitos/preferencias`, token),
   postHitosPreferencias: (items: DiaPreferenciaItem[], token?: string) => postJson(`/me/hitos/preferencias`, { items }, token),
   postHorario: (blocks: HorarioBloque[], token?: string) => postJson(`/me/horario`, blocks, token),
+  putCursos: (
+    payload: { campusId: number; periodoId: number; carreraId: number; cursoIds: number[] },
+    token?: string,
+  ) => putJsonReturn<UsuarioCursoResumenDto[]>(`/me/cursos`, payload, token),
 };
 
 export default meService;

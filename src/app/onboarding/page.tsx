@@ -16,6 +16,7 @@ export default function OnboardingPage() {
   const { data: session } = useSession();
   const idToken = (session as unknown as { idToken?: string } | null)?.idToken ?? "";
   const [terms, setTerms] = useState<Term[]>([]);
+  const [confirmCatalog, setConfirmCatalog] = useState<Array<{ id: number; codigo: string; nombre: string }>>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -51,12 +52,40 @@ export default function OnboardingPage() {
     clearError,
   } = useOnboarding(idToken);
 
+  // Cargar catálogo del programa para mostrar nombres de cursos en Confirmación
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const pid = Number(formData.program);
+        if (!Number.isNaN(pid) && pid > 0) {
+          const list = await onboardingService.fetchCursosPorCarrera(pid, idToken);
+          if (!mounted) return;
+          setConfirmCatalog(list);
+        } else {
+          if (!mounted) return;
+          setConfirmCatalog([]);
+        }
+      } catch {
+        if (!mounted) return;
+        setConfirmCatalog([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [idToken, formData.program]);
+
   const handleNext = async () => {
-    if (currentStep === 6) {
+    if (currentStep === 3) {
       const okCourses = await submitCourses();
       if (!okCourses) return;
       const success = await submitOnboarding();
       if (success) {
+        try {
+          if (formData.wantsAlerts) {
+            // Ya no creamos eventos automáticamente. Se hará desde Home con semanas reales de PA.
+            try { localStorage.setItem("trackademy_calendar_sync", "1"); } catch {}
+          }
+        } catch {}
         router.push("/home");
       }
     } else {
@@ -73,27 +102,10 @@ export default function OnboardingPage() {
             <FaCheckCircle className="text-[#7c3aed] text-3xl mr-2" />
             <h1 className="text-3xl sm:text-4xl font-black text-white">Onboarding</h1>
           </div>
-          <motion.div initial={{ width: 0 }} animate={{ width: `${(currentStep / 6) * 100}%` }} className="h-2 rounded-full bg-[#7c3aed] mb-8" />
+          <motion.div initial={{ width: 0 }} animate={{ width: `${(currentStep / 3) * 100}%` }} className="h-2 rounded-full bg-[#7c3aed] mb-8" />
         </div>
         <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="bg-[#23203b] border border-[#7c3aed] rounded-3xl p-8 sm:p-12 text-left min-h-96 flex flex-col justify-between shadow-lg">
           {currentStep === 1 && (
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Preferencias</h2>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Quieres recibir alertas academicas?</label>
-                <input type="checkbox" checked={formData.wantsAlerts} onChange={e => updateFormData({ wantsAlerts: e.target.checked })} className="accent-[#7c3aed] w-5 h-5" />
-              </div>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Te interesan incentivos y recompensas?</label>
-                <input type="checkbox" checked={formData.wantsIncentives} onChange={e => updateFormData({ wantsIncentives: e.target.checked })} className="accent-[#a21caf] w-5 h-5" />
-              </div>
-              <div>
-                <label className="block text-white/80 mb-2">Permites compartir tus datos para mejorar la experiencia?</label>
-                <input type="checkbox" checked={formData.allowDataSharing} onChange={e => updateFormData({ allowDataSharing: e.target.checked })} className="accent-[#c7d2fe] w-5 h-5" />
-              </div>
-            </div>
-          )}
-          {currentStep === 2 && (
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Datos Academicos</h2>
               <div className="mb-6">
@@ -142,49 +154,7 @@ export default function OnboardingPage() {
               </div>
             </div>
           )}
-          {currentStep === 3 && (
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Intereses y Estilo de Aprendizaje</h2>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Especializacion (opcional)</label>
-                <input value={formData.specialization || ""} onChange={e => updateFormData({ specialization: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="IA, Cloud, ..." />
-              </div>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Intereses profesionales</label>
-                <input value={formData.careerInterests?.join(", ") || ""} onChange={e => updateFormData({ careerInterests: e.target.value.split(",") })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="Ej: IA, Cloud, Web" />
-              </div>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Estilo de aprendizaje</label>
-                <input value={formData.learningStyle || ""} onChange={e => updateFormData({ learningStyle: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#a21caf] p-3 text-white" placeholder="Visual, Auditivo, Kinestesico..." />
-              </div>
-              <div>
-                <label className="block text-white/80 mb-2">Factores de motivacion</label>
-                <input value={formData.motivationFactors?.join(", ") || ""} onChange={e => updateFormData({ motivationFactors: e.target.value.split(",") })} className="w-full rounded-md bg-[#18132a] border border-[#c7d2fe] p-3 text-white" placeholder="Ej: Logros, Comunidad..." />
-              </div>
-            </div>
-          )}
-          {currentStep === 4 && (
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Disponibilidad y Horarios</h2>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Horas de estudio por dia</label>
-                <input type="number" value={formData.studyHoursPerDay || ""} onChange={e => updateFormData({ studyHoursPerDay: Number(e.target.value) })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="Ej: 2" />
-              </div>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Horas de trabajo por semana</label>
-                <input type="number" value={formData.workHoursPerWeek || ""} onChange={e => updateFormData({ workHoursPerWeek: Number(e.target.value) })} className="w-full rounded-md bg-[#18132a] border border-[#a21caf] p-3 text-white" placeholder="Ej: 10" />
-              </div>
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2">Horas extracurriculares por semana</label>
-                <input type="number" value={formData.extracurricularHoursPerWeek || ""} onChange={e => updateFormData({ extracurricularHoursPerWeek: Number(e.target.value) })} className="w-full rounded-md bg-[#18132a] border border-[#c7d2fe] p-3 text-white" placeholder="Ej: 5" />
-              </div>
-              <div>
-                <label className="block text-white/80 mb-2">Disponibilidad semanal (JSON)</label>
-                <input value={formData.weeklyAvailabilityJson || ""} onChange={e => updateFormData({ weeklyAvailabilityJson: e.target.value })} className="w-full rounded-md bg-[#18132a] border border-[#7c3aed] p-3 text-white" placeholder="{...}" />
-              </div>
-            </div>
-          )}
-          {currentStep === 5 && (
+          {currentStep === 2 && (
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Cursos</h2>
               <CoursesStep
@@ -196,12 +166,59 @@ export default function OnboardingPage() {
               />
             </div>
           )}
-          {currentStep === 6 && (
+          {currentStep === 3 && (
             <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Confirmacion</h2>
-              <div className="mb-6">
-                <p className="text-white/80">Revisa tus datos antes de continuar:</p>
-                <pre className="bg-[#18132a] border border-[#7c3aed] rounded-md p-4 text-white text-sm mt-4">{JSON.stringify(formData, null, 2)}</pre>
+              <h2 className="text-2xl font-bold text-white mb-6">Confirmación</h2>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white/5 border border-white/15 rounded-xl p-4">
+                    <div className="text-white/60 text-sm mb-1">Campus</div>
+                    <div className="text-white font-semibold">{campuses.find(c => String(c.id) === String(formData.campus))?.name || "—"}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/15 rounded-xl p-4">
+                    <div className="text-white/60 text-sm mb-1">Programa</div>
+                    <div className="text-white font-semibold">{programs.find(p => String(p.id) === String(formData.program))?.name || "—"}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/15 rounded-xl p-4">
+                    <div className="text-white/60 text-sm mb-1">Periodo</div>
+                    <div className="text-white font-semibold">{terms.find(t => Number(t.id) === Number(formData.termId))?.name || "—"}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/15 rounded-xl p-4">
+                    <div className="text-white/60 text-sm mb-1">Ciclo</div>
+                    <div className="text-white font-semibold">{formData.cycle || "—"}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-white font-semibold">Cursos seleccionados</h3>
+                    <span className="text-white/60 text-sm">{formData.courses?.length || 0}</span>
+                  </div>
+                  {(!formData.courses || formData.courses.length === 0) ? (
+                    <div className="text-white/60">No seleccionaste cursos.</div>
+                  ) : (
+                    <div className="max-h-72 overflow-auto rounded-xl border border-white/15 bg-white/5">
+                      <ul className="divide-y divide-white/10">
+                        {formData.courses.map((c, i) => {
+                          const course = typeof c.courseId === 'number'
+                            ? confirmCatalog.find(x => x.id === c.courseId)
+                            : confirmCatalog.find(x => x.codigo === c.courseCode);
+                          const name = course?.nombre || String(c.courseCode || c.courseId);
+                          const code = course?.codigo || c.courseCode || '';
+                          return (
+                            <li key={i} className="flex items-center justify-between p-3">
+                              <div className="min-w-0">
+                                <div className="text-white font-medium truncate max-w-[520px]">{name}</div>
+                                <div className="text-white/60 text-[10px] tracking-wider uppercase">{code}</div>
+                              </div>
+                              <div className="text-white/60 text-sm">#{i + 1}</div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -221,7 +238,7 @@ export default function OnboardingPage() {
             <Button variant="primary" size="lg" onClick={handleNext} disabled={isSubmitting || loading} className="flex-1 bg-[#7c3aed] hover:bg-[#a21caf] text-white font-bold">
               {isSubmitting ? (
                 <span className="animate-spin mr-2">○</span>
-              ) : currentStep === 6 ? (
+              ) : currentStep === 3 ? (
                 "Completar"
               ) : (
                 "Siguiente"
@@ -230,7 +247,7 @@ export default function OnboardingPage() {
           </div>
         </motion.div>
         <div className="mt-8 text-center text-[#c7d2fe] text-sm">
-          <p>Paso {currentStep} de 6</p>
+          <p>Paso {currentStep} de 3</p>
         </div>
       </motion.div>
     </div>

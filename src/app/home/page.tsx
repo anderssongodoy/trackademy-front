@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { beginLoading } from "@/lib/loadingBus";
+import { ensurePAForCurrentWeek, ensurePAForWeek, ensureEvaluationEvent } from "@/lib/graphCalendar";
+import { setMsalAuthority, promptGraphConsent } from "@/lib/msalClient";
+import { downloadICS, generateICSForEvaluations } from "@/lib/ics";
 import meService, { type UsuarioCursoResumenDto, type UsuarioEvaluacionDto, type HorarioBloque } from "@/services/meService";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { getLoginStatus } from "@/services/accountService";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -56,15 +60,18 @@ export default function HomePage() {
   const [cursos, setCursos] = useState<UsuarioCursoResumenDto[]>([]);
   const [evaluaciones, setEvaluaciones] = useState<UsuarioEvaluacionDto[]>([]);
   const [recs, setRecs] = useState<string[]>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [recsUpdatedAt, setRecsUpdatedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [notaEdit, setNotaEdit] = useState<Record<number, string>>({});
   const [savingNota, setSavingNota] = useState<Record<number, boolean>>({});
-  const [anticipacion, setAnticipacion] = useState<number>(3);
-  const [savingPref, setSavingPref] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
+  const [confirmNota, setConfirmNota] = useState<{ open: boolean; evId?: number; value?: number }>(() => ({ open: false }));
   const [horario, setHorario] = useState<Record<number, HorarioBloque[]>>({});
   const [periodStart, setPeriodStart] = useState<Date | null>(null);
   const [periodEnd, setPeriodEnd] = useState<Date | null>(null);
+  const [syncingPA, setSyncingPA] = useState(false);
+  const [downloadingICS, setDownloadingICS] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -79,7 +86,8 @@ export default function HomePage() {
       if (!mounted) return;
       setCursos(c ?? []);
       setEvaluaciones(e ?? []);
-      setRecs(r ?? []);
+      setRecs((r ?? []).slice(0, 8));
+      setRecsUpdatedAt(new Date());
       const by: Record<number, HorarioBloque[]> = {};
       (h ?? []).forEach((b) => { (by[b.usuarioCursoId] ||= []).push(b as HorarioBloque); });
       setHorario(by);
@@ -88,6 +96,60 @@ export default function HomePage() {
     if (token) load();
     return () => { mounted = false; };
   }, [token]);
+
+  async function refreshRecs() {
+    if (!token) return;
+    setRecsLoading(true);
+    const r = await meService.getRecomendaciones(token);
+    setRecs((r ?? []).slice(0, 8));
+    setRecsUpdatedAt(new Date());
+    setRecsLoading(false);
+  }
+
+  // Se eliminÃ³ la sincronizaciÃ³n automÃ¡tica; ahora solo se hace por botÃ³n y semanas reales de PA
+
+  // Utilidades PA: calcular lunes por semanas de evaluaciones tipo PA
+  function getMonday(d: Date) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const day = x.getDay(); const diff = (day === 0 ? -6 : 1 - day); x.setDate(x.getDate() + diff); x.setHours(0,0,0,0); return x; }
+  function computeAllEvaluations(): Array<{ id: number; date: Date; title: string }> {
+    const list: Array<{ id: number; date: Date; title: string }> = [];
+    (evaluaciones || []).forEach((ev) => {
+      const d = parseLocalDate(ev.fechaEstimada);
+      if (!d) return;
+      const info = byEvalId.get(ev.id);
+      const name = ev.codigo || ev.descripcion || "EvaluaciÃ³n";
+      const title = `[Trackademy] ${name}${info ? ` â€” ${info.curso}` : ''}`;
+      list.push({ id: ev.id, date: d, title });
+    });
+    return list.sort((a,b)=>a.date.getTime()-b.date.getTime());
+  }
+
+  // BotÃ³n para sincronizar sÃ³lo las semanas reales de PA
+  async function handleSyncAllPA() {
+    if (syncingPA) return;
+    setSyncingPA(true);
+    try {
+      const evals = computeAllEvaluations();
+      if (evals.length === 0) { alert('No se encontraron evaluaciones con fecha.'); setSyncingPA(false); return; }
+      // VerificaciÃ³n inicial para obtener permisos/token con la primera evaluaciÃ³n
+      const testOk = await ensureEvaluationEvent({ id: evals[0].id, date: evals[0].date, title: evals[0].title });
+      if (!testOk) {
+        // eslint-disable-next-line no-alert
+        alert("No se pudo obtener permiso para escribir en tu calendario. Acepta el popup y reintenta.");
+        setSyncingPA(false);
+        return;
+      }
+      let created = 0, attempted = 0;
+      for (const it of evals) { attempted++; const ok = await ensureEvaluationEvent({ id: it.id, date: it.date, title: it.title }); if (ok) created++; }
+      try { localStorage.setItem("trackademy_calendar_sync", "1"); } catch {}
+      // eslint-disable-next-line no-alert
+      alert(created > 0 ? `Evaluaciones sincronizadas (${created}/${attempted}).` : "No se pudo crear ningÃºn evento.");
+    } catch {
+      // eslint-disable-next-line no-alert
+      alert("No se pudo sincronizar el calendario. Reintenta.");
+    } finally {
+      setSyncingPA(false);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -144,7 +206,7 @@ export default function HomePage() {
       const ev = (c.evaluaciones || []).find((e) => !e.nota);
       if (ev) list.push({ curso: c.cursoNombre, ev });
     });
-    return list.slice(0, 3);
+    return list;
   }, [cursos]);
 
   const hoy = new Date();
@@ -162,7 +224,7 @@ export default function HomePage() {
       if (!d) return;
       if (sameDate(d, hoy)) {
         const info = byEvalId.get(ev.id);
-        const name = ev.codigo || ev.descripcion || "Evaluación";
+        const name = ev.codigo || ev.descripcion || "EvaluaciÃ³n";
         items.push({ kind: "evaluacion", title: name, subtitle: info ? info.curso : undefined });
       }
     });
@@ -203,7 +265,7 @@ export default function HomePage() {
           <div>
             <h1 className="text-3xl sm:text-4xl font-black text-white">Tu espacio</h1>
             <div className="text-white/60 mt-1 text-sm">
-              {semanaActual ? `Semana ${semanaActual}` : ""}{semanaActual ? " • " : ""}Hoy {formatShort(hoy)}
+              {semanaActual ? `Semana ${semanaActual}` : ""}{semanaActual ? " â€¢ " : ""}Hoy {formatShort(hoy)}
             </div>
           </div>
           <div className="relative">
@@ -218,7 +280,7 @@ export default function HomePage() {
             {userMenu ? (
               <div className="absolute right-0 mt-2 w-40 bg-[#23203b] border border-[#7c3aed] rounded-xl shadow-xl p-1 z-10">
                 <a href="/perfil" className="block px-3 py-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg">Perfil</a>
-                <button onClick={() => { beginLoading("Cerrando sesión..."); signOut({ callbackUrl: "/" }); }} className="w-full text-left px-3 py-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg">Cerrar sesión</button>
+                <button onClick={() => { beginLoading("Cerrando sesiÃ³n..."); signOut({ callbackUrl: "/" }); }} className="w-full text-left px-3 py-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg">Cerrar sesiÃ³n</button>
               </div>
             ) : null}
           </div>
@@ -235,7 +297,7 @@ export default function HomePage() {
             <div className="text-3xl font-extrabold text-white">{kpis.semanaActual ?? "--"}</div>
           </div>
           <div className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-5">
-            <div className="text-white/70 text-sm">Próximas evaluaciones</div>
+            <div className="text-white/70 text-sm">PrÃ³ximas evaluaciones</div>
             <div className="text-3xl font-extrabold text-white">{loading ? "--" : kpis.proximas}</div>
           </div>
         </div>
@@ -245,9 +307,25 @@ export default function HomePage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Agenda de hoy */}
             <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 gap-2">
                 <h2 className="text-xl font-bold text-white">Agenda de hoy</h2>
-                <a href="/home/hitos" className="text-white/90 border border-[#7c3aed] px-3 py-1.5 rounded-xl hover:text-white">Ver calendario</a>
+                <div className="flex items-center gap-2">
+                  <button onClick={async () => { setMsalAuthority("consumers"); await promptGraphConsent(["Calendars.ReadWrite"]); await handleSyncAllPA(); }} disabled={syncingPA} className={`px-3 py-1.5 rounded-xl border ${syncingPA ? "opacity-60 cursor-not-allowed" : "hover:text-white"} text-white/90 border-[#7c3aed]`}>
+                    {syncingPA ? "Sincronizandoâ€¦" : "Sincronizar con Microsoft"}
+                  </button>
+                  <button onClick={async () => {
+                    if (downloadingICS) return; setDownloadingICS(true);
+                    try {
+                      const evals = computeAllEvaluations();
+                      if (evals.length === 0) { alert('No se encontraron evaluaciones con fecha.'); return; }
+                      const ics = generateICSForEvaluations(evals);
+                      downloadICS(ics);
+                    } finally { setDownloadingICS(false); }
+                  }} disabled={downloadingICS} className={`px-3 py-1.5 rounded-xl border ${downloadingICS ? "opacity-60 cursor-not-allowed" : "hover:text-white"} text-white/90 border-white/30`}>
+                    {downloadingICS ? "Generandoâ€¦" : "Descargar .ics"}
+                  </button>
+                  <a href="/home/hitos" className="text-white/90 border border-[#7c3aed] px-3 py-1.5 rounded-xl hover:text-white">Ver calendario</a>
+                </div>
               </div>
               {agendaHoy.length === 0 ? (
                 <div className="text-white/60">No tienes clases ni evaluaciones hoy.</div>
@@ -260,7 +338,7 @@ export default function HomePage() {
                         {it.subtitle ? (<div className="text-white/60 text-sm">{it.subtitle}</div>) : null}
                       </div>
                       <div className={`text-xs px-2 py-1 rounded-lg border ${it.kind === "clase" ? "border-white/20 text-white/80" : "border-[#7c3aed] text-white"}`}>
-                        {it.kind === "clase" ? (it.time || "") : "Evaluación"}
+                        {it.kind === "clase" ? (it.time || "") : "EvaluaciÃ³n"}
                       </div>
                     </li>
                   ))}
@@ -285,8 +363,8 @@ export default function HomePage() {
                         <div className="text-white/70 text-sm mt-1">
                           {next ? (
                             <>
-                              Próxima: {next.codigo || next.descripcion || "Evaluación"}
-                              {" • "}
+                              PrÃ³xima: {next.codigo || next.descripcion || "EvaluaciÃ³n"}
+                              {" â€¢ "}
                               {next.semana ? `Semana ${next.semana}` : (formatDate(next.fechaEstimada) || "Fecha por definir")}
                             </>
                           ) : (
@@ -302,9 +380,9 @@ export default function HomePage() {
               ))}
             </section>
 
-            {/* Acciones rápidas */}
+            {/* Acciones rÃ¡pidas */}
             <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Acciones rápidas</h2>
+              <h2 className="text-xl font-bold text-white mb-4">Acciones rÃ¡pidas</h2>
               {nextSinNota.length === 0 ? (
                 <div className="text-white/60">No hay evaluaciones pendientes de nota.</div>
               ) : (
@@ -316,7 +394,7 @@ export default function HomePage() {
                     {nextSinNota.map(({ curso, ev }) => (
                       <div key={ev.id} className="bg-white/10 border border-white/20 rounded-xl p-4">
                         <div className="text-white font-semibold mb-1">{curso}</div>
-                        <div className="text-white/70 text-sm mb-2">{ev.codigo || ev.descripcion || "Evaluación"}</div>
+                        <div className="text-white/70 text-sm mb-2">{ev.codigo || ev.descripcion || "EvaluaciÃ³n"}</div>
                         <div className="flex items-center gap-2">
                           <input
                             value={notaEdit[ev.id] ?? ""}
@@ -326,22 +404,15 @@ export default function HomePage() {
                           />
                           <button
                             disabled={savingNota[ev.id]}
-                            onClick={async () => {
+                            onClick={() => {
                               const val = (notaEdit[ev.id] ?? "").trim();
-                              if (!val || isNaN(Number(val))) return;
-                              setSavingNota((s) => ({ ...s, [ev.id]: true }));
-                              const ok = await meService.postNota(ev.id, String(val), token);
-                              setSavingNota((s) => ({ ...s, [ev.id]: false }));
-                              if (ok) {
-                                setEvaluaciones((prev) => prev?.map((x) => (x.id === ev.id ? { ...x, nota: String(val) } : x)) ?? []);
-                                setCursos((prev) =>
-                                  prev?.map((c) => ({
-                                    ...c,
-                                    evaluaciones: c.evaluaciones.map((x) => (x.id === ev.id ? { ...x, nota: String(val) } : x)),
-                                  })) ?? []
-                                );
-                                setNotaEdit((s) => ({ ...s, [ev.id]: "" }));
+                              const num = Number(val);
+                              if (!val || !Number.isFinite(num)) return;
+                              if (num < 0 || num > 20) {
+                                alert("La nota debe estar entre 0 y 20.");
+                                return;
                               }
+                              setConfirmNota({ open: true, evId: ev.id, value: num });
                             }}
                             className="border border-[#7c3aed] text-white/90 px-3 py-1.5 rounded-xl hover:text-white"
                           >
@@ -359,7 +430,7 @@ export default function HomePage() {
           {/* Columna derecha */}
           <div className="space-y-6">
             <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
-              <h2 className="text-xl font-bold text-white mb-2">Próximas evaluaciones</h2>
+              <h2 className="text-xl font-bold text-white mb-2">PrÃ³ximas evaluaciones</h2>
               
               {loading ? (
                 <div className="text-white/60">Cargando...</div>
@@ -374,17 +445,17 @@ export default function HomePage() {
                       <li key={e.id} className="bg-white/10 border border-white/20 rounded-xl p-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-white font-medium leading-snug whitespace-normal break-words">{e.codigo || e.descripcion || "Evaluación"}</div>
+                            <div className="text-white font-medium leading-snug whitespace-normal break-words">{e.codigo || e.descripcion || "EvaluaciÃ³n"}</div>
                             <div
                               className="text-white/60 text-sm"
-                              title={info?.curso ? `${info.curso} • ${meta}` : meta}
+                              title={info?.curso ? `${info.curso} â€¢ ${meta}` : meta}
                               style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" }}
                             >
-                              {info?.curso ? (<><span>{info.curso}</span> <span className="text-white/40">•</span> {meta}</>) : meta}
+                              {info?.curso ? (<><span>{info.curso}</span> <span className="text-white/40">â€¢</span> {meta}</>) : meta}
                             </div>
                           </div>
                           {dLeft != null ? (
-                            <div className={`text-xs px-2 py-1 rounded-lg border shrink-0 ${urgency}`}>{dLeft === 0 ? "hoy" : dLeft === 1 ? "mañana" : `en ${dLeft} días`}</div>
+                            <div className={`text-xs px-2 py-1 rounded-lg border shrink-0 ${urgency}`}>{dLeft === 0 ? "hoy" : dLeft === 1 ? "maÃ±ana" : `en ${dLeft} dÃ­as`}</div>
                           ) : null}
                         </div>
                       </li>
@@ -392,46 +463,70 @@ export default function HomePage() {
                   })}
                 </ul>
               ) : (
-                <div className="text-white/60">No hay hitos en las próximas semanas.</div>
+                <div className="text-white/60">No hay hitos en las prÃ³ximas semanas.</div>
               ))}
             </section>
 
-            <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Recordatorios</h2>
-              <div className="flex items-center gap-3">
-                <select value={anticipacion} onChange={(e) => setAnticipacion(Number(e.target.value))} className="rounded-xl bg-white/10 border border-white/20 p-2 text-white">
-                  <option value={1}>1 día</option>
-                  <option value={3}>3 días</option>
-                  <option value={5}>5 días</option>
-                  <option value={7}>7 días</option>
-                </select>
-                <button
-                  disabled={savingPref}
-                  onClick={async () => {
-                    setSavingPref(true);
-                    await meService.setRecordatorios(anticipacion, token);
-                    setSavingPref(false);
-                  }}
-                  className="border border-[#7c3aed] text-white/90 px-3 py-1.5 rounded-xl hover:text-white"
-                >
-                  Guardar preferencia
-                </button>
-              </div>
-            </section>
+            {/* Se removiÃ³ la secciÃ³n de Recordatorios (preferencias) al no ser necesaria */}
 
             <section className="bg-[#23203b] border border-[#7c3aed] rounded-2xl p-6">
-              <h2 className="text-xl font-bold text-white mb-2">Recomendaciones</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-white">Recomendaciones</h2>
+                <button
+                  onClick={refreshRecs}
+                  disabled={recsLoading}
+                  className="text-white/80 border border-white/20 px-3 py-1.5 rounded-xl hover:text-white disabled:opacity-60"
+                >
+                  {recsLoading ? "Actualizando..." : "Actualizar"}
+                </button>
+              </div>
               {recs?.length ? (
-                <ul className="list-disc pl-6 text-white/80">
-                  {recs.map((r, i) => (<li key={i}>{r}</li>))}
+                <ul className="list-disc pl-6 text-white/80 space-y-1">
+                  {recs.slice(0, 8).map((r, i) => (<li key={i}>{r}</li>))}
                 </ul>
               ) : (
                 <div className="text-white/60">Por ahora no hay recomendaciones.</div>
               )}
+              <div className="text-white/40 text-xs mt-2">
+                {recsUpdatedAt ? `Actualizado: ${recsUpdatedAt.toLocaleDateString('es-PE')} ${recsUpdatedAt.toLocaleTimeString('es-PE')}` : ''}
+              </div>
             </section>
           </div>
         </div>
+        <ConfirmDialog
+          open={confirmNota.open}
+          title="Confirmar guardado de nota"
+          message={<>
+            <div>¿Guardar la nota <span className="font-semibold">{confirmNota.value?.toFixed(1)}</span>?</div>
+            <div className="text-white/70 text-sm mt-1">No podrás modificarla luego.</div>
+          </>}
+          confirmText="Guardar"
+          cancelText="Cancelar"
+          loading={confirmNota.evId ? !!savingNota[confirmNota.evId] : false}
+          onCancel={() => setConfirmNota({ open: false })}
+          onConfirm={async () => {
+            if (!confirmNota.evId || confirmNota.value == null) return;
+            const id = confirmNota.evId; const num = confirmNota.value;
+            setSavingNota((s) => ({ ...s, [id]: true }));
+            const ok = await meService.postNota(id, String(num), token);
+            setSavingNota((s) => ({ ...s, [id]: false }));
+            setConfirmNota({ open: false });
+            if (ok) {
+              setEvaluaciones((prev) => prev?.map((x) => (x.id === id ? { ...x, nota: String(num) } : x)) ?? []);
+              setCursos((prev) => prev?.map((c) => ({
+                ...c,
+                evaluaciones: c.evaluaciones.map((x) => (x.id === id ? { ...x, nota: String(num) } : x)),
+              })) ?? []);
+              setNotaEdit((s) => ({ ...s, [id]: "" }));
+            }
+          }}
+        />
       </div>
     </div>
   );
+}
+
+// Confirm dialog mounted at end to avoid layout shifts
+export function HomePageConfirmHost() {
+  return null;
 }

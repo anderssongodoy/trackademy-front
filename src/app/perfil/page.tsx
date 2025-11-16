@@ -156,28 +156,19 @@ export default function PerfilPage() {
                 if (!canSave) return;
                 setSaving(true);
                 try {
-                  await onboardingService.submitOnboarding(
-                    {
-                      campus,
-                      program,
-                      cycle: 0,
-                      careerInterests: [],
-                      studyHoursPerDay: 0,
-                      learningStyle: "",
-                      motivationFactors: [],
-                      wantsAlerts: true,
-                      wantsIncentives: true,
-                      allowDataSharing: false,
-                      preferredStudyTimes: [],
-                      workHoursPerWeek: 0,
-                      extracurricularHoursPerWeek: 0,
-                      weeklyAvailabilityJson: "{}",
-                      termId,
-                      courses,
-                    },
-                    token,
-                    userImage
-                  );
+                  const cursoIds = (courses || [])
+                    .map(c => (typeof c.courseId === 'number' ? Number(c.courseId) : NaN))
+                    .filter(n => Number.isFinite(n)) as number[];
+                  const payload = {
+                    campusId: Number(campus),
+                    periodoId: Number(termId),
+                    carreraId: Number(program),
+                    cursoIds,
+                  };
+                  const updated = await meService.putCursos(payload, token);
+                  if (updated && updated.length) {
+                    setCourses(updated.map(u => ({ courseId: u.cursoId })) as CourseEntry[]);
+                  }
                 } finally {
                   setSaving(false);
                 }

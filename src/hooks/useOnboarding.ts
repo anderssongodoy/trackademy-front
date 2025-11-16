@@ -21,7 +21,7 @@ interface UseOnboardingReturn {
   clearError: () => void;
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 3;
 
 const DEFAULT_FORM_DATA: OnboardingFormData = {
   campus: "",
@@ -92,7 +92,7 @@ export function useOnboarding(token: string): UseOnboardingReturn {
 
   const validateStep = useCallback((): boolean => {
     switch (currentStep) {
-      case 2:
+      case 1: // Datos académicos
         if (!formData.campus) {
           setError("Por favor selecciona un campus");
           return false;
