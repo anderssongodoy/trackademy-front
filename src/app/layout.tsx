@@ -5,8 +5,11 @@ import { LoadingProvider } from "@/components/ui/LoaderOverlay";
 import ToastProvider from "@/components/ui/ToastProvider";
 
 export const metadata: Metadata = {
-  title: "Trackademy - Gestión Académica Inteligente",
+  title: "TrackAdemy - Gestión Académica Inteligente",
   description: "Plataforma de gestión de vida académica diseñada para estudiantes de la UTP",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export const viewport: Viewport = {

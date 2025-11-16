@@ -46,7 +46,7 @@ export default function Landing() {
       <div className="w-full max-w-3xl mx-auto text-center animate-fade-in">
         <div className="mb-10">
           <h1 className="text-5xl sm:text-7xl font-black text-white mb-4 leading-tight">
-            <span className="block text-[#7c3aed]">Trackademy</span>
+            <span className="block text-[#7c3aed]">TrackAdemy</span>
             <span className="block">Tu espacio académico</span>
           </h1>
           <p className="text-lg sm:text-xl text-[#c7d2fe] mb-8 max-w-xl mx-auto">
