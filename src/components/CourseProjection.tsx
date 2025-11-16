@@ -26,7 +26,7 @@ export default function CourseProjection({ cursoId, evaluacionesMeta }: { cursoI
         id: e.id,
         porcentaje: Number(e.porcentaje) || 0,
         nota: (() => {
-          const n = typeof e.nota === "string" ? parseFloat(e.nota) : (typeof (e as any).nota === "number" ? (e as any).nota : NaN);
+          const n = typeof e.nota === "string" ? parseFloat(e.nota) : NaN;
           return Number.isFinite(n) ? n : null;
         })(),
         label: (e.codigo) || undefined,

@@ -4,7 +4,6 @@ import { getGraphAccessToken } from "./msalClient";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
-// Mapeo mínimo de IANA -> Windows TZ que Graph acepta mejor en campos timeZone
 function ianaToWindows(tz: string): string {
   const map: Record<string, string> = {
     "UTC": "UTC",
@@ -22,7 +21,6 @@ function formatLocalISO(date: Date) {
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
   const ss = String(date.getSeconds()).padStart(2, "0");
-  // Importante: sin sufijo Z; Graph lo interpreta en la zona indicada en timeZone
   return `${y}-${m}-${d}T${hh}:${mm}:${ss}`;
 }
 
@@ -33,7 +31,7 @@ function toIsoUtc(d: Date) {
 function getMonday(d: Date) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const day = x.getDay();
-  const diff = (day === 0 ? -6 : 1 - day); // Monday as start, if Sunday -> go back 6
+  const diff = (day === 0 ? -6 : 1 - day);
   x.setDate(x.getDate() + diff);
   x.setHours(0, 0, 0, 0);
   return x;
@@ -41,10 +39,10 @@ function getMonday(d: Date) {
 
 export type PAWeekOptions = {
   subject?: string;
-  startHour?: number; // 0-23 local time used only for label; we send UTC
-  durationMinutes?: number; // default 15
-  reminderMinutes?: number; // default 30
-  timeZone?: string; // default "UTC"
+  startHour?: number;
+  durationMinutes?: number;
+  reminderMinutes?: number;
+  timeZone?: string;
 };
 
 export async function ensurePAForCurrentWeek(loginHint?: string, opts?: PAWeekOptions) {
@@ -64,7 +62,7 @@ export async function ensurePAForWeek(weekStartMonday: Date, loginHint?: string,
 
   const start = new Date(weekStartMonday);
   const end = new Date(weekStartMonday);
-  end.setDate(end.getDate() + 6); // full week window for search
+  end.setDate(end.getDate() + 6);
   end.setHours(23, 59, 59, 0);
 
   // 1) Buscar si ya existe algo de Trackademy esta semana
@@ -72,16 +70,15 @@ export async function ensurePAForWeek(weekStartMonday: Date, loginHint?: string,
   const found = await fetch(searchUrl, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
-  }).then(r => r.ok ? r.json() : Promise.resolve({ value: [] as any[] }))
-    .then((d: { value?: any[] }) => (d.value || []).filter(e => typeof e?.subject === "string" && e.subject.includes("[Trackademy]")));
+  }).then(r => r.ok ? r.json() : Promise.resolve({ value: [] as { subject?: string }[] }))
+    .then((d: { value?: { subject?: string }[] }) => (d.value || []).filter(e => typeof e?.subject === "string" && e.subject.includes("[Trackademy]")));
 
-  if (found.length >= 3) return true; // ya hay eventos de la semana
+  if (found.length >= 3) return true;
 
-  // 2) Crear serie diaria (5 ocurrencias) ALL-DAY lun-vie dentro de esa semana
   const startDay = new Date(weekStartMonday);
   startDay.setHours(0, 0, 0, 0);
   const endDay = new Date(startDay);
-  endDay.setDate(endDay.getDate() + 1); // fin exclusivo al día siguiente a las 00:00
+  endDay.setDate(endDay.getDate() + 1);
 
   const payload = {
     subject,
@@ -107,7 +104,6 @@ export async function ensurePAForWeek(weekStartMonday: Date, loginHint?: string,
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      // Nota: se puede usar Prefer: outlook.timezone para forzar TZ; aquí mandamos en el cuerpo timeZone
     },
     body: JSON.stringify(payload),
   });
@@ -117,9 +113,9 @@ export async function ensurePAForWeek(weekStartMonday: Date, loginHint?: string,
 
 export type EvaluationItem = {
   id: number;
-  date: Date; // fecha del evento (local)
-  title: string; // texto visible
-  timeZone?: string; // IANA preferida
+  date: Date;
+  title: string;
+  timeZone?: string;
 };
 
 export async function ensureEvaluationEvent(item: EvaluationItem, loginHint?: string, reminderMinutes = 60) {
@@ -133,15 +129,13 @@ export async function ensureEvaluationEvent(item: EvaluationItem, loginHint?: st
   const tag = `[TA] Eval #${item.id}`;
   const subject = `${tag} ${item.title}`;
 
-  // 1) buscar en el día si ya existe un evento con el tag
   const url = `${GRAPH_BASE}/me/calendarView?startDateTime=${encodeURIComponent(toIsoUtc(start))}&endDateTime=${encodeURIComponent(toIsoUtc(end))}`;
   const list = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
-    .then(r => r.ok ? r.json() : Promise.resolve({ value: [] as any[] }))
-    .then((d: { value?: any[] }) => (d.value || []));
+    .then(r => r.ok ? r.json() : Promise.resolve({ value: [] as { subject?: string }[] }))
+    .then((d: { value?: { subject?: string }[] }) => (d.value || []));
   const exists = list.some(e => typeof e?.subject === "string" && String(e.subject).includes(tag));
   if (exists) return true;
 
-  // 2) crear all-day
   const payload = {
     subject,
     body: { contentType: "HTML", content: `Evaluación programada: ${item.title}<br/>— Trackademy` },

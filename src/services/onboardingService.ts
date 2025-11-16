@@ -8,11 +8,10 @@
 } from "@/types/onboarding";
 import { beginLoading, endLoading } from "@/lib/loadingBus";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 const UNI_ID = Number(process.env.NEXT_PUBLIC_UNIVERSIDAD_ID || "1");
 
 class OnboardingService {
-  // Envia el onboarding completo. Puede incluir X-User-Image opcional.
   async submitOnboarding(
     data: OnboardingFormData,
     token?: string,

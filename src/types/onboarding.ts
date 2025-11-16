@@ -10,11 +10,10 @@ export interface OnboardingFormData {
   wantsAlerts: boolean;
   wantsIncentives: boolean;
   allowDataSharing: boolean;
-  // New fields per ONBOARDING_FRONT_SPEC.md
-  preferredStudyTimes?: string[]; // ["morning","afternoon","evening","weekend"]
-  workHoursPerWeek?: number; // 0..80
-  extracurricularHoursPerWeek?: number; // 0..80
-  weeklyAvailabilityJson?: string; // JSON string with time blocks
+  preferredStudyTimes?: string[];
+  workHoursPerWeek?: number;
+  extracurricularHoursPerWeek?: number;
+  weeklyAvailabilityJson?: string;
   termId?: number;
   termCode?: string;
   courses?: Array<{
@@ -91,10 +90,9 @@ export interface CourseItem {
   modality?: string;
 }
 
-// Academic term used to select the current period without asking for raw IDs
 export interface Term {
-  id: number; // backend identifier
-  code?: string; // human-readable code, e.g. "2025-1"
-  name: string; // display label, e.g. "2025 - Semestre I"
+  id: number;
+  code?: string;
+  name: string;
   active?: boolean;
 }

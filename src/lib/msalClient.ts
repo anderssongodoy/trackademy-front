@@ -43,7 +43,6 @@ export function getMsalApp() {
   if (!msalApp) {
     const { clientId, authority } = getConfig();
     if (!clientId) {
-      // eslint-disable-next-line no-console
       console.warn("MSAL clientId no configurado: NEXT_PUBLIC_AZURE_CLIENT_ID");
       return null;
     }
@@ -56,7 +55,6 @@ export function getMsalApp() {
   return msalApp;
 }
 
-// Abre un popup de consentimiento explícito para los scopes indicados
 export async function promptGraphConsent(scopes: string[], loginHint?: string): Promise<boolean> {
   const app = getMsalApp();
   if (!app) return false;

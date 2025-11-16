@@ -1,13 +1,14 @@
 ﻿"use client";
 
 import { useSession, signIn } from "next-auth/react";
-import { beginLoading } from "@/lib/loadingBus";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { getLoginStatus, type LoginStatus } from "@/services/accountService";
 
 export default function Landing() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [status, setStatus] = useState<"idle" | "checking" | "needs" | "ok">("idle");
   const token = (session as { idToken?: string; user?: { image?: string } } | null)?.idToken;
   const userImage = (session as { idToken?: string; user?: { image?: string } } | null)?.user?.image;
@@ -27,9 +28,9 @@ export default function Landing() {
   }, [token, userImage]);
 
   const onPrimary = () => {
-    if (!session) { beginLoading("Iniciando sesión..."); void signIn("microsoft-entra-id"); return; }
-    if (status === "needs") { window.location.href = "/onboarding"; return; }
-    window.location.href = "/home";
+    if (!session) { void signIn("microsoft-entra-id"); return; }
+    if (status === "needs") { router.push("/onboarding"); return; }
+    router.push("/home");
   };
 
   const buttonText = !session
@@ -65,6 +66,10 @@ export default function Landing() {
     </div>
   );
 }
+
+
+
+
 
 
 

@@ -18,9 +18,9 @@ export default function TimeSelect({ value = "08:00", onChange, startHour = 6, e
   const max = useMemo(() => `${fmt(Math.min(23,endHour))}:59`, [endHour]);
   const ref = useRef<HTMLInputElement | null>(null);
   function clampAndRound(v: string): string {
-    const parts = /^([0-9]{1,2}):([0-9]{1,2})$/.exec(v || "") || [] as any;
-    let hh = Number(parts[1]);
-    let mm = Number(parts[2]);
+    const m = /^([0-9]{1,2}):([0-9]{1,2})$/.exec(v || "");
+    let hh = Number(m?.[1]);
+    let mm = Number(m?.[2]);
     if (Number.isNaN(hh)) hh = startHour;
     if (Number.isNaN(mm)) mm = 0;
     hh = Math.max(startHour, Math.min(endHour, hh));
@@ -45,7 +45,7 @@ export default function TimeSelect({ value = "08:00", onChange, startHour = 6, e
       <button
         type="button"
         aria-label="Elegir hora"
-        onClick={() => { const el = ref.current; if (!el) return; (el as any).showPicker?.(); el.focus(); }}
+        onClick={() => { const el = ref.current as (HTMLInputElement & { showPicker?: () => void }) | null; if (!el) return; el.showPicker?.(); el.focus(); }}
         className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
       >
         <FiClock size={16} />
